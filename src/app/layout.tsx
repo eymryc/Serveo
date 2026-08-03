@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Rajdhani, Geist_Mono } from "next/font/google";
 import { ServiceWorkerRegister } from "@/lib/register-service-worker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppClerkProvider } from "@/components/app-clerk-provider";
@@ -7,9 +7,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// https://fonts.google.com/specimen/Rajdhani — police d'identite Serveo.
+// Rajdhani n'est pas une police variable sur Google Fonts : les graisses
+// doivent etre listees explicitement (docs Next.js sur next/font/google).
+const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -40,7 +44,7 @@ export default function RootLayout({
     <html
       lang="fr"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${rajdhani.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>

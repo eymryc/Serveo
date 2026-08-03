@@ -99,6 +99,7 @@ export function AppShell({
             <OrganizationSwitcher
               hidePersonal
               afterSelectOrganizationUrl="/app"
+              afterCreateOrganizationUrl="/onboarding/sync"
               appearance={{ elements: { organizationSwitcherTrigger: "text-sm" } }}
             />
             <UserButton />

@@ -6,13 +6,14 @@
 
 /*
   Charte "Comptoir" — dark-first, accent cuivre chaud plutot que le bleu
-  SaaS par defaut. Les chiffres FCFA s'affichent en Geist Mono tabulaire
-  (cf. .font-figures ci-dessous) pour un rendu "ticket de caisse".
+  SaaS par defaut. Rajdhani (fonts.google.com/specimen/Rajdhani) pour
+  l'interface, Geist Mono tabulaire pour les chiffres FCFA (cf.
+  .font-figures ci-dessous) pour un rendu "ticket de caisse".
 */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Rajdhani", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, SFMono-Regular, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
