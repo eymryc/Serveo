@@ -1,0 +1,147 @@
+import {
+  pgTable,
+  text,
+  integer,
+  numeric,
+  timestamp,
+  uuid,
+  pgEnum,
+  index,
+} from "drizzle-orm/pg-core";
+
+// Un tenant = une organisation Clerk = un bar/buvette.
+// L'id est directement l'org_id Clerk (pas de duplication d'identite).
+export const organizations = pgTable("organizations", {
+  id: text("id").primaryKey(), // Clerk org id (org_xxx)
+  name: text("name").notNull(),
+  city: text("city"),
+  country: text("country").default("Cote d'Ivoire"),
+  currency: text("currency").notNull().default("FCFA"),
+  monthlyRevenueTarget: numeric("monthly_revenue_target", { precision: 12, scale: 2 }),
+  monthlyMarginTargetPct: numeric("monthly_margin_target_pct", { precision: 5, scale: 2 }),
+  defaultStockAlertThreshold: integer("default_stock_alert_threshold").notNull().default(5),
+  paystackCustomerCode: text("paystack_customer_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+]);
+
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Un seul enregistrement d'abonnement par organisation : on suit l'etat
+  // courant, l'historique de facturation reste dans Paystack.
+  organizationId: text("organization_id")
+    .notNull()
+    .unique()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  paystackSubscriptionCode: text("paystack_subscription_code"),
+  planCode: text("plan_code").notNull(),
+  status: subscriptionStatusEnum("status").notNull().default("trialing"),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("subscriptions_org_idx").on(t.organizationId)]);
+
+export const categories = pgTable("categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+}, (t) => [index("categories_org_idx").on(t.organizationId)]);
+
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
+  purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
+  // Cache derive de la somme des stock_movements — source de verite = stock_movements.
+  currentStock: integer("current_stock").notNull().default(0),
+  stockMinThreshold: integer("stock_min_threshold").notNull().default(5),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("products_org_idx").on(t.organizationId)]);
+
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "especes",
+  "orange_money",
+  "mtn_momo",
+  "wave",
+  "carte_virement",
+  "credit_client",
+]);
+
+export const sales = pgTable("sales", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "restrict" }),
+  soldAt: timestamp("sold_at", { withTimezone: true }).notNull().defaultNow(),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull(),
+  discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
+  grossAmount: numeric("gross_amount", { precision: 12, scale: 2 }).notNull(),
+  netAmount: numeric("net_amount", { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("sales_org_soldat_idx").on(t.organizationId, t.soldAt),
+]);
+
+export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
+  "initial",
+  "entry",
+  "sale_exit",
+  "adjustment",
+]);
+
+// Toute variation de stock passe par ici, y compris celle generee automatiquement
+// par une vente — c'est ce qui relie Ventes <-> Stock sans double saisie.
+export const stockMovements = pgTable("stock_movements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  type: stockMovementTypeEnum("type").notNull(),
+  quantityDelta: integer("quantity_delta").notNull(), // positif = entree, negatif = sortie
+  referenceSaleId: uuid("reference_sale_id").references(() => sales.id, { onDelete: "set null" }),
+  note: text("note"),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("stock_movements_org_product_idx").on(t.organizationId, t.productId),
+]);
+
+export const expenses = pgTable("expenses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  expenseDate: timestamp("expense_date", { withTimezone: true }).notNull(),
+  label: text("label").notNull(),
+  category: text("category").notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  frequency: text("frequency"),
+  remark: text("remark"),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("expenses_org_date_idx").on(t.organizationId, t.expenseDate),
+]);
