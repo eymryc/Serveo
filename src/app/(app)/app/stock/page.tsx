@@ -1,26 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOrganization } from "@clerk/nextjs";
 import { PackagePlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import type { Category, Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const NO_CATEGORY = "none";
+const ALL_CATEGORIES = "all";
 
 export default function StockPage() {
   const { membership } = useOrganization();
   const isAdmin = membership?.role === "org:admin";
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
 
   const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState(NO_CATEGORY);
   const [unitPrice, setUnitPrice] = useState(0);
   const [purchasePrice, setPurchasePrice] = useState(0);
   const [initialStock, setInitialStock] = useState(0);
@@ -34,6 +41,18 @@ export default function StockPage() {
   }
 
   useEffect(loadProducts, []);
+  useEffect(() => {
+    apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
+  }, []);
+
+  const categoryName = (id: string | null) =>
+    id ? (categories.find((c) => c.id === id)?.name ?? "—") : "Sans categorie";
+
+  const filteredProducts = useMemo(() => {
+    if (categoryFilter === ALL_CATEGORIES) return products;
+    if (categoryFilter === NO_CATEGORY) return products.filter((p) => !p.categoryId);
+    return products.filter((p) => p.categoryId === categoryFilter);
+  }, [products, categoryFilter]);
 
   async function handleCreateProduct(e: React.FormEvent) {
     e.preventDefault();
@@ -41,10 +60,18 @@ export default function StockPage() {
     try {
       await apiFetch("/api/v1/products", {
         method: "POST",
-        body: JSON.stringify({ name, unitPrice, purchasePrice, initialStock, stockMinThreshold }),
+        body: JSON.stringify({
+          name,
+          categoryId: categoryId === NO_CATEGORY ? null : categoryId,
+          unitPrice,
+          purchasePrice,
+          initialStock,
+          stockMinThreshold,
+        }),
       });
       toast.success(`Article "${name}" ajoute`);
       setName("");
+      setCategoryId(NO_CATEGORY);
       setUnitPrice(0);
       setPurchasePrice(0);
       setInitialStock(0);
@@ -96,6 +123,22 @@ export default function StockPage() {
                 <Input required value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <div className="space-y-1.5">
+                <Label>Categorie</Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY}>Sans categorie</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
                 <Label>Prix vente</Label>
                 <Input
                   type="number"
@@ -141,11 +184,29 @@ export default function StockPage() {
       )}
 
       <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle className="text-sm">Articles</CardTitle>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>Toutes les categories</SelectItem>
+              <SelectItem value={NO_CATEGORY}>Sans categorie</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Article</TableHead>
+                <TableHead>Categorie</TableHead>
                 <TableHead className="text-right">Stock actuel</TableHead>
                 <TableHead className="text-right">Seuil min</TableHead>
                 {isAdmin && <TableHead className="text-right">Valeur</TableHead>}
@@ -154,11 +215,12 @@ export default function StockPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((p) => {
+              {filteredProducts.map((p) => {
                 const alert = p.currentStock <= p.stockMinThreshold;
                 return (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{categoryName(p.categoryId)}</TableCell>
                     <TableCell className="font-figures text-right">{p.currentStock}</TableCell>
                     <TableCell className="font-figures text-right text-muted-foreground">
                       {p.stockMinThreshold}
@@ -193,9 +255,9 @@ export default function StockPage() {
                   </TableRow>
                 );
               })}
-              {products.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground">
                     Aucun article.
                   </TableCell>
                 </TableRow>

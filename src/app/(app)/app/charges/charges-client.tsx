@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, type Expense } from "@/lib/types";
+import { PAYMENT_METHOD_LABELS, type Category, type Expense, type Organization } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,24 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const CATEGORIES = [
-  "Loyer",
-  "Salaires",
-  "Electricite",
-  "Achats boissons",
-  "Achats snacks",
-  "Telephone",
-  "Entretien",
-  "Autres",
-];
-
 export default function ChargesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
+    Object.keys(PAYMENT_METHOD_LABELS)
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [label, setLabel] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [categoryId, setCategoryId] = useState<string>("");
   const [amount, setAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("especes");
 
@@ -38,6 +31,20 @@ export default function ChargesPage() {
   }
 
   useEffect(loadExpenses, []);
+  useEffect(() => {
+    apiFetch<{ categories: Category[] }>("/api/v1/expense-categories").then((d) => {
+      setCategories(d.categories);
+      if (d.categories[0]) setCategoryId((prev) => prev || d.categories[0].id);
+    });
+    apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
+      setActivePaymentMethods(d.organization.activePaymentMethods);
+      setPaymentMethod((prev) =>
+        d.organization.activePaymentMethods.includes(prev) ? prev : d.organization.activePaymentMethods[0]
+      );
+    });
+  }, []);
+
+  const categoryName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "Sans categorie";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +52,7 @@ export default function ChargesPage() {
     try {
       await apiFetch("/api/v1/expenses", {
         method: "POST",
-        body: JSON.stringify({ expenseDate, label, category, amount, paymentMethod }),
+        body: JSON.stringify({ expenseDate, label, categoryId: categoryId || null, amount, paymentMethod }),
       });
       toast.success("Depense enregistree");
       setLabel("");
@@ -85,16 +92,21 @@ export default function ChargesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Categorie</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="Categorie..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
                     </SelectItem>
                   ))}
+                  {categories.length === 0 && (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                      Ajoutez des categories dans Parametres.
+                    </p>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -115,9 +127,9 @@ export default function ChargesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, lbl]) => (
+                  {activePaymentMethods.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {lbl}
+                      {PAYMENT_METHOD_LABELS[value] ?? value}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -153,7 +165,7 @@ export default function ChargesPage() {
                     {new Date(ex.expenseDate).toLocaleDateString("fr-FR")}
                   </TableCell>
                   <TableCell>{ex.label}</TableCell>
-                  <TableCell className="text-muted-foreground">{ex.category}</TableCell>
+                  <TableCell className="text-muted-foreground">{categoryName(ex.categoryId)}</TableCell>
                   <TableCell className="font-figures text-right font-medium">
                     {formatFcfa(Number(ex.amount))}
                   </TableCell>

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         organizationId,
         expenseDate: body.expenseDate,
         label: body.label,
-        category: body.category,
+        categoryId: body.categoryId,
         amount: body.amount.toString(),
         paymentMethod: body.paymentMethod,
         frequency: body.frequency,

@@ -5,7 +5,7 @@ import { Minus, Plus, RefreshCw, Search, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, type Product, type Sale } from "@/lib/types";
+import { PAYMENT_METHOD_LABELS, type Category, type Organization, type Product, type Sale } from "@/lib/types";
 import { enqueueSale, getQueue, syncQueue, type QueuedSale } from "@/lib/offline-sales-queue";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+const ALL_CATEGORIES = "all";
+
 export default function VentesPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
+    Object.keys(PAYMENT_METHOD_LABELS)
+  );
   const [queue, setQueue] = useState<QueuedSale[]>(() =>
     typeof window === "undefined" ? [] : getQueue()
   );
@@ -28,6 +34,7 @@ export default function VentesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
@@ -53,6 +60,13 @@ export default function VentesPage() {
 
   useEffect(() => {
     loadAll();
+    apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
+    apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
+      setActivePaymentMethods(d.organization.activePaymentMethods);
+      setPaymentMethod((prev) =>
+        d.organization.activePaymentMethods.includes(prev) ? prev : d.organization.activePaymentMethods[0]
+      );
+    });
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -75,9 +89,19 @@ export default function VentesPage() {
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, search]);
+    return products.filter((p) => {
+      const matchesSearch = !q || p.name.toLowerCase().includes(q);
+      const matchesCategory =
+        categoryFilter === ALL_CATEGORIES ? true : p.categoryId === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, search, categoryFilter]);
+
+  const usedCategoryIds = useMemo(
+    () => new Set(products.map((p) => p.categoryId).filter((id): id is string => !!id)),
+    [products]
+  );
+  const visibleCategories = categories.filter((c) => usedCategoryIds.has(c.id));
 
   const selectedProduct = products.find((p) => p.id === productId);
 
@@ -175,6 +199,30 @@ export default function VentesPage() {
             />
           </div>
 
+          {visibleCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={categoryFilter === ALL_CATEGORIES ? "default" : "outline"}
+                onClick={() => setCategoryFilter(ALL_CATEGORIES)}
+              >
+                Tout
+              </Button>
+              {visibleCategories.map((c) => (
+                <Button
+                  key={c.id}
+                  type="button"
+                  size="sm"
+                  variant={categoryFilter === c.id ? "default" : "outline"}
+                  onClick={() => setCategoryFilter(c.id)}
+                >
+                  {c.name}
+                </Button>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {filteredProducts.map((p) => {
               const active = p.id === productId;
@@ -185,7 +233,7 @@ export default function VentesPage() {
                   type="button"
                   onClick={() => selectProduct(p.id)}
                   className={cn(
-                    "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
+                    "flex flex-col items-start gap-1 border p-3 text-left transition-colors",
                     active
                       ? "border-primary bg-primary/10 ring-1 ring-primary"
                       : "border-border bg-card hover:border-primary/50"
@@ -263,7 +311,7 @@ export default function VentesPage() {
                 <div className="space-y-1.5">
                   <span className="text-sm text-muted-foreground">Paiement</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                    {activePaymentMethods.map((value) => (
                       <Button
                         key={value}
                         type="button"
@@ -271,7 +319,7 @@ export default function VentesPage() {
                         variant={paymentMethod === value ? "default" : "outline"}
                         onClick={() => setPaymentMethod(value)}
                       >
-                        {label}
+                        {PAYMENT_METHOD_LABELS[value] ?? value}
                       </Button>
                     ))}
                   </div>

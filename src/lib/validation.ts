@@ -1,13 +1,7 @@
 import { z } from "zod";
+import { paymentMethodValues } from "@/db/schema";
 
-export const paymentMethods = [
-  "especes",
-  "orange_money",
-  "mtn_momo",
-  "wave",
-  "carte_virement",
-  "credit_client",
-] as const;
+export const paymentMethods = paymentMethodValues;
 
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
@@ -35,7 +29,7 @@ export const createStockMovementSchema = z.object({
 export const createExpenseSchema = z.object({
   expenseDate: z.coerce.date(),
   label: z.string().min(1).max(200),
-  category: z.string().min(1).max(100),
+  categoryId: z.string().uuid().optional().nullable(),
   amount: z.coerce.number().positive(),
   paymentMethod: z.enum(paymentMethods),
   frequency: z.string().max(50).optional(),
@@ -50,4 +44,9 @@ export const updateOrganizationSchema = z.object({
   monthlyRevenueTarget: z.coerce.number().nonnegative().optional(),
   monthlyMarginTargetPct: z.coerce.number().min(0).max(100).optional(),
   defaultStockAlertThreshold: z.coerce.number().int().nonnegative().optional(),
+  activePaymentMethods: z.array(z.enum(paymentMethods)).min(1).optional(),
+});
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1).max(100),
 });

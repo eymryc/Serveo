@@ -15,6 +15,20 @@
       "when": 1785755938684,
       "tag": "0001_friendly_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785765276527,
+      "tag": "0002_brief_warhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785765418274,
+      "tag": "0003_giant_greymalkin",
+      "breakpoints": true
     }
   ]
 }

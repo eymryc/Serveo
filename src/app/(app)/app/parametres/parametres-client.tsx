@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CategoryManager } from "@/components/category-manager";
+import { PaymentMethodsManager } from "@/components/payment-methods-manager";
 
 type Subscription = { status: string; currentPeriodEnd: string | null } | null;
 
@@ -93,6 +95,8 @@ export default function ParametresPage() {
       <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="paiements">Paiements</TabsTrigger>
           <TabsTrigger value="abonnement">Abonnement</TabsTrigger>
         </TabsList>
 
@@ -136,6 +140,41 @@ export default function ParametresPage() {
                 </Button>
               </CardFooter>
             </form>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Categories de produits</CardTitle>
+              <CardDescription>Bieres, Vins, Liqueurs... — utilisees dans Stock et Ventes.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CategoryManager apiPath="/api/v1/categories" placeholder="Ex: Whisky" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Categories de charges</CardTitle>
+              <CardDescription>Loyer, Salaires, Electricite... — utilisees dans Charges.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CategoryManager apiPath="/api/v1/expense-categories" placeholder="Ex: Assurance" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="paiements">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Moyens de paiement actifs</CardTitle>
+              <CardDescription>
+                Seuls les moyens actifs apparaissent dans les formulaires Ventes et Charges.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PaymentMethodsManager organization={org} onUpdated={setOrg} />
+            </CardContent>
           </Card>
         </TabsContent>
 

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -8,6 +9,15 @@ import {
   pgEnum,
   index,
 } from "drizzle-orm/pg-core";
+
+export const paymentMethodValues = [
+  "especes",
+  "orange_money",
+  "mtn_momo",
+  "wave",
+  "carte_virement",
+  "credit_client",
+] as const;
 
 // Un tenant = une organisation Clerk = un bar/buvette.
 // L'id est directement l'org_id Clerk (pas de duplication d'identite).
@@ -20,6 +30,12 @@ export const organizations = pgTable("organizations", {
   monthlyRevenueTarget: numeric("monthly_revenue_target", { precision: 12, scale: 2 }),
   monthlyMarginTargetPct: numeric("monthly_margin_target_pct", { precision: 5, scale: 2 }),
   defaultStockAlertThreshold: integer("default_stock_alert_threshold").notNull().default(5),
+  // Quels moyens de paiement apparaissent dans les formulaires Ventes/Charges
+  // — evite d'afficher "Wave" a un bar qui ne l'accepte pas.
+  activePaymentMethods: text("active_payment_methods")
+    .array()
+    .notNull()
+    .default(sql`ARRAY['especes','orange_money','mtn_momo','wave','carte_virement','credit_client']::text[]`),
   paystackCustomerCode: text("paystack_customer_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -47,7 +63,11 @@ export const subscriptions = pgTable("subscriptions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("subscriptions_org_idx").on(t.organizationId)]);
 
-export const categories = pgTable("categories", {
+// Categories de produits (Bieres, Vins, Liqueurs...) — parametrables par
+// bar, pas figees dans le code : chaque etablissement a sa propre carte.
+// (nom de table SQL inchange "categories" pour eviter une migration de
+// renommage ; seul le nom TypeScript est clarifie)
+export const productCategories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: text("organization_id")
     .notNull()
@@ -55,12 +75,22 @@ export const categories = pgTable("categories", {
   name: text("name").notNull(),
 }, (t) => [index("categories_org_idx").on(t.organizationId)]);
 
+// Categories de charges (Loyer, Salaires...) — meme logique, parametrables
+// plutot que codees en dur cote frontend.
+export const expenseCategories = pgTable("expense_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+}, (t) => [index("expense_categories_org_idx").on(t.organizationId)]);
+
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
-  categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+  categoryId: uuid("category_id").references(() => productCategories.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
   purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -71,14 +101,7 @@ export const products = pgTable("products", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("products_org_idx").on(t.organizationId)]);
 
-export const paymentMethodEnum = pgEnum("payment_method", [
-  "especes",
-  "orange_money",
-  "mtn_momo",
-  "wave",
-  "carte_virement",
-  "credit_client",
-]);
+export const paymentMethodEnum = pgEnum("payment_method", paymentMethodValues);
 
 export const sales = pgTable("sales", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -135,7 +158,7 @@ export const expenses = pgTable("expenses", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   expenseDate: timestamp("expense_date", { withTimezone: true }).notNull(),
   label: text("label").notNull(),
-  category: text("category").notNull(),
+  categoryId: uuid("category_id").references(() => expenseCategories.id, { onDelete: "set null" }),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   frequency: text("frequency"),

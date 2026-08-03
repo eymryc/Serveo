@@ -87,7 +87,9 @@
   --chart-3: oklch(0.62 0.15 80);
   --chart-4: oklch(0.5 0.08 260);
   --chart-5: oklch(0.6 0.02 50);
-  --radius: 0.625rem;
+  /* Coins rectangulaires partout — un seul token a changer, tous les
+     rounded-sm/md/lg/xl du systeme en heritent. */
+  --radius: 0rem;
   --sidebar: oklch(0.97 0.004 55);
   --sidebar-foreground: oklch(0.17 0.012 50);
   --sidebar-primary: oklch(0.58 0.17 40);

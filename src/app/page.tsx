@@ -83,7 +83,7 @@ export default async function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:py-28">
-          <p className="mb-4 inline-flex items-center rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
+          <p className="mb-4 inline-flex items-center border border-border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
             Logiciel de gestion pour bars &amp; buvettes
           </p>
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">

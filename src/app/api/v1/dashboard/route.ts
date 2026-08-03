@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { categories, expenses, organizations, products, sales } from "@/db/schema";
+import { expenseCategories, expenses, organizations, productCategories, products, sales } from "@/db/schema";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { stripPurchasePrice } from "@/lib/products";
 import {
@@ -89,23 +89,24 @@ export async function GET(req: NextRequest) {
 
     const revenueByCategoryRaw = await db
       .select({
-        category: sql<string>`coalesce(${categories.name}, 'Sans categorie')`,
+        category: sql<string>`coalesce(${productCategories.name}, 'Sans categorie')`,
         amount: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
       })
       .from(sales)
       .innerJoin(products, eq(sales.productId, products.id))
-      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
       .where(salesInPeriod)
-      .groupBy(categories.name);
+      .groupBy(productCategories.name);
 
     const expensesByCategoryRaw = await db
       .select({
-        category: expenses.category,
+        category: sql<string>`coalesce(${expenseCategories.name}, 'Sans categorie')`,
         amount: sql<string>`coalesce(sum(${expenses.amount}), 0)`,
       })
       .from(expenses)
+      .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
       .where(expensesInPeriod)
-      .groupBy(expenses.category);
+      .groupBy(expenseCategories.name);
 
     const stockAlerts = await db
       .select()

@@ -28,11 +28,17 @@ export type Expense = {
   id: string;
   expenseDate: string;
   label: string;
-  category: string;
+  categoryId: string | null;
   amount: string;
   paymentMethod: string;
   frequency: string | null;
   remark: string | null;
+};
+
+export type Category = {
+  id: string;
+  organizationId: string;
+  name: string;
 };
 
 export type Organization = {
@@ -44,6 +50,7 @@ export type Organization = {
   monthlyRevenueTarget: string | null;
   monthlyMarginTargetPct: string | null;
   defaultStockAlertThreshold: number;
+  activePaymentMethods: string[];
 };
 
 // Vue reduite renvoyee au barman : uniquement le stock, pas les chiffres
@@ -74,3 +81,5 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   carte_virement: "Carte / Virement",
   credit_client: "Credit client",
 };
+
+export const ALL_PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS);
