@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { products, stockMovements } from "@/db/schema";
-import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
+import { requireAdmin, requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { createProductSchema } from "@/lib/validation";
+import { createProduct, listProducts, stripPurchasePrice } from "@/lib/products";
 
+// Le prix d'achat (purchasePrice) revele la marge par article — masque
+// pour le barman, qui n'a besoin que du prix de vente et du stock pour
+// travailler.
 export async function GET() {
   try {
-    const { organizationId } = await requireTenant();
-    const db = getDb();
+    const { organizationId, orgRole } = await requireTenant();
+    const rows = await listProducts(organizationId);
 
-    const rows = await db
-      .select()
-      .from(products)
-      .where(and(eq(products.organizationId, organizationId), eq(products.isActive, 1)));
+    if (orgRole !== "org:admin") {
+      return NextResponse.json({ products: stripPurchasePrice(rows) });
+    }
 
     return NextResponse.json({ products: rows });
   } catch (error) {
@@ -21,39 +21,15 @@ export async function GET() {
   }
 }
 
+// Creer un nouvel article (et fixer son prix d'achat) est une decision de
+// gestion reservee au gerant.
 export async function POST(req: NextRequest) {
   try {
-    const { organizationId, userId } = await requireTenant();
+    const { organizationId, userId, orgRole } = await requireTenant();
+    requireAdmin(orgRole);
     const body = createProductSchema.parse(await req.json());
-    const db = getDb();
 
-    const product = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(products)
-        .values({
-          organizationId,
-          categoryId: body.categoryId ?? null,
-          name: body.name,
-          unitPrice: body.unitPrice.toString(),
-          purchasePrice: body.purchasePrice.toString(),
-          currentStock: body.initialStock,
-          stockMinThreshold: body.stockMinThreshold,
-        })
-        .returning();
-
-      if (body.initialStock > 0) {
-        await tx.insert(stockMovements).values({
-          organizationId,
-          productId: created.id,
-          type: "initial",
-          quantityDelta: body.initialStock,
-          createdByUserId: userId,
-        });
-      }
-
-      return created;
-    });
-
+    const product = await createProduct({ organizationId, userId, ...body });
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
     return tenantErrorResponse(error);

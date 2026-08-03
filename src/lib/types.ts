@@ -4,7 +4,8 @@ export type Product = {
   categoryId: string | null;
   name: string;
   unitPrice: string;
-  purchasePrice: string;
+  // Absent pour un role non-admin (masque cote API : revele la marge).
+  purchasePrice?: string;
   currentStock: number;
   stockMinThreshold: number;
   isActive: number;
@@ -45,7 +46,16 @@ export type Organization = {
   defaultStockAlertThreshold: number;
 };
 
-export type DashboardData = {
+// Vue reduite renvoyee au barman : uniquement le stock, pas les chiffres
+// financiers (cf. audit sur la separation des roles).
+export type RestrictedDashboardData = {
+  restricted: true;
+  period: { from: string; to: string };
+  stock: { alerts: Product[]; alertsCount: number };
+};
+
+export type FullDashboardData = {
+  restricted: false;
   period: { from: string; to: string };
   revenue: { gross: number; net: number; salesCount: number; avgTicket: number };
   expenses: { total: number; byCategory: { category: string; amount: number; percentage: number }[] };
@@ -53,6 +63,8 @@ export type DashboardData = {
   result: { netProfit: number; marginPct: number | null; goalProgressPct: number | null; monthlyRevenueTarget: number | null };
   stock: { totalValue: number; activeProductsCount: number; alerts: Product[]; alertsCount: number };
 };
+
+export type DashboardData = FullDashboardData | RestrictedDashboardData;
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   especes: "Especes",

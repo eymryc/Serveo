@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useOrganization } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
 export default function StockPage() {
+  const { membership } = useOrganization();
+  const isAdmin = membership?.role === "org:admin";
+
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,59 +70,61 @@ export default function StockPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold text-neutral-900">Stock &amp; approvisionnement</h1>
 
-      <form
-        onSubmit={handleCreateProduct}
-        className="grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-6"
-      >
-        <input
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom de l'article"
-          className="col-span-2 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          required
-          value={unitPrice}
-          onChange={(e) => setUnitPrice(Number(e.target.value))}
-          placeholder="Prix vente"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          value={purchasePrice}
-          onChange={(e) => setPurchasePrice(Number(e.target.value))}
-          placeholder="Prix achat"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          value={initialStock}
-          onChange={(e) => setInitialStock(Number(e.target.value))}
-          placeholder="Stock initial"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          value={stockMinThreshold}
-          onChange={(e) => setStockMinThreshold(Number(e.target.value))}
-          placeholder="Seuil alerte"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="col-span-2 rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 md:col-span-1"
+      {isAdmin && (
+        <form
+          onSubmit={handleCreateProduct}
+          className="grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-6"
         >
-          Ajouter l&apos;article
-        </button>
-        {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
-      </form>
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nom de l'article"
+            className="col-span-2 rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            required
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(Number(e.target.value))}
+            placeholder="Prix vente"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            value={purchasePrice}
+            onChange={(e) => setPurchasePrice(Number(e.target.value))}
+            placeholder="Prix achat"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            value={initialStock}
+            onChange={(e) => setInitialStock(Number(e.target.value))}
+            placeholder="Stock initial"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            value={stockMinThreshold}
+            onChange={(e) => setStockMinThreshold(Number(e.target.value))}
+            placeholder="Seuil alerte"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="col-span-2 rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 md:col-span-1"
+          >
+            Ajouter l&apos;article
+          </button>
+          {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
+        </form>
+      )}
 
       <div className="rounded-lg border border-neutral-200 bg-white p-4">
         <table className="w-full text-sm">
@@ -127,7 +133,7 @@ export default function StockPage() {
               <th className="pb-2 font-normal">Article</th>
               <th className="pb-2 font-normal text-right">Stock actuel</th>
               <th className="pb-2 font-normal text-right">Seuil min</th>
-              <th className="pb-2 font-normal text-right">Valeur</th>
+              {isAdmin && <th className="pb-2 font-normal text-right">Valeur</th>}
               <th className="pb-2 font-normal">Statut</th>
               <th className="pb-2 font-normal">Entree de stock</th>
             </tr>
@@ -140,9 +146,11 @@ export default function StockPage() {
                   <td className="py-1.5 text-neutral-700">{p.name}</td>
                   <td className="py-1.5 text-right text-neutral-900">{p.currentStock}</td>
                   <td className="py-1.5 text-right text-neutral-500">{p.stockMinThreshold}</td>
-                  <td className="py-1.5 text-right text-neutral-700">
-                    {formatFcfa(p.currentStock * Number(p.purchasePrice))}
-                  </td>
+                  {isAdmin && (
+                    <td className="py-1.5 text-right text-neutral-700">
+                      {formatFcfa(p.currentStock * Number(p.purchasePrice ?? 0))}
+                    </td>
+                  )}
                   <td className="py-1.5">
                     {alert ? (
                       <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
@@ -179,8 +187,8 @@ export default function StockPage() {
             })}
             {products.length === 0 && (
               <tr>
-                <td className="py-2 text-neutral-400" colSpan={6}>
-                  Aucun article. Ajoutez votre premier article ci-dessus.
+                <td className="py-2 text-neutral-400" colSpan={isAdmin ? 6 : 5}>
+                  Aucun article.
                 </td>
               </tr>
             )}

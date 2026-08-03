@@ -20,6 +20,27 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: "go
   );
 }
 
+function StockAlerts({ alerts, alertsCount }: { alerts: DashboardData["stock"]["alerts"]; alertsCount: number }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+      <h2 className="mb-3 text-sm font-semibold text-red-800">
+        Articles a reapprovisionner ({alertsCount})
+      </h2>
+      <ul className="space-y-1 text-sm text-red-900">
+        {alerts.map((p) => (
+          <li key={p.id} className="flex justify-between">
+            <span>{p.name}</span>
+            <span>
+              Stock {p.currentStock} / seuil {p.stockMinThreshold}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +53,28 @@ export default function DashboardPage() {
 
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data) return <p className="text-neutral-500">Chargement...</p>;
+
+  // Vue barman : uniquement le stock, pas les chiffres financiers du bar.
+  if (data.restricted) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold text-neutral-900">Stock</h1>
+          <p className="text-sm text-neutral-500">
+            Les chiffres financiers du bar sont reserves au gerant.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Card
+            label="Alertes stock"
+            value={String(data.stock.alertsCount)}
+            tone={data.stock.alertsCount > 0 ? "bad" : "good"}
+          />
+        </div>
+        <StockAlerts alerts={data.stock.alerts} alertsCount={data.stock.alertsCount} />
+      </div>
+    );
+  }
 
   const profitTone = data.result.netProfit >= 0 ? "good" : "bad";
 
@@ -126,23 +169,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {data.stock.alerts.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-red-800">
-            Articles a reapprovisionner ({data.stock.alertsCount})
-          </h2>
-          <ul className="space-y-1 text-sm text-red-900">
-            {data.stock.alerts.map((p) => (
-              <li key={p.id} className="flex justify-between">
-                <span>{p.name}</span>
-                <span>
-                  Stock {p.currentStock} / seuil {p.stockMinThreshold}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <StockAlerts alerts={data.stock.alerts} alertsCount={data.stock.alertsCount} />
     </div>
   );
 }

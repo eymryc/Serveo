@@ -1,12 +1,8 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { HttpError } from "@/lib/http-errors";
 
-export class TenantError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+export { errorResponse as tenantErrorResponse } from "@/lib/http-errors";
 
 // A appeler au debut de chaque route API : garantit qu'un utilisateur
 // authentifie ET rattache a une organisation (bar) fait la requete,
@@ -15,19 +11,17 @@ export async function requireTenant() {
   const { userId, orgId, orgRole } = await auth();
 
   if (!userId) {
-    throw new TenantError(401, "Authentification requise");
+    throw new HttpError(401, "Authentification requise");
   }
   if (!orgId) {
-    throw new TenantError(403, "Aucune organisation active — rejoignez ou creez un bar");
+    throw new HttpError(403, "Aucune organisation active — rejoignez ou creez un bar");
   }
 
   return { userId, organizationId: orgId, orgRole };
 }
 
-export function tenantErrorResponse(error: unknown) {
-  if (error instanceof TenantError) {
-    return NextResponse.json({ error: error.message }, { status: error.status });
+export function requireAdmin(orgRole: string | null | undefined) {
+  if (orgRole !== "org:admin") {
+    throw new HttpError(403, "Reserve au gerant");
   }
-  console.error(error);
-  return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
 }

@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { expenses } from "@/db/schema";
-import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
+import { requireAdmin, requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { createExpenseSchema } from "@/lib/validation";
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
+// Les charges (loyer, salaires, achats...) sont une donnee financiere
+// sensible reservee au gerant — un barman n'a pas a savoir ce que coute le
+// loyer ou combien gagnent ses collegues.
 export async function GET(req: NextRequest) {
   try {
-    const { organizationId } = await requireTenant();
+    const { organizationId, orgRole } = await requireTenant();
+    requireAdmin(orgRole);
     const { searchParams } = new URL(req.url);
     const from = searchParams.get("from")
       ? new Date(searchParams.get("from")!)
@@ -39,7 +43,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { organizationId, userId } = await requireTenant();
+    const { organizationId, userId, orgRole } = await requireTenant();
+    requireAdmin(orgRole);
     const body = createExpenseSchema.parse(await req.json());
 
     const [expense] = await getDb()
