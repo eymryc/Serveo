@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { frFR } from "@clerk/localizations";
 import { ServiceWorkerRegister } from "@/lib/register-service-worker";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AppClerkProvider } from "@/components/app-clerk-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,7 +24,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#171717",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fefcfa" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1815" },
+  ],
 };
 
 export default function RootLayout({
@@ -33,13 +38,19 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ClerkProvider localization={frFR}>
-          <ServiceWorkerRegister />
-          {children}
-        </ClerkProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <AppClerkProvider>
+            <TooltipProvider>
+              <ServiceWorkerRegister />
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </AppClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

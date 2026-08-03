@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, type Expense } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CATEGORIES = [
   "Loyer",
@@ -18,7 +25,6 @@ const CATEGORIES = [
 
 export default function ChargesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -35,18 +41,18 @@ export default function ChargesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     try {
       await apiFetch("/api/v1/expenses", {
         method: "POST",
         body: JSON.stringify({ expenseDate, label, category, amount, paymentMethod }),
       });
+      toast.success("Depense enregistree");
       setLabel("");
       setAmount(0);
       loadExpenses();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
+      toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
       setSubmitting(false);
     }
@@ -56,106 +62,117 @@ export default function ChargesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-neutral-900">Charges &amp; depenses</h1>
-
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-6"
-      >
-        <input
-          type="date"
-          required
-          value={expenseDate}
-          onChange={(e) => setExpenseDate(e.target.value)}
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          required
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Libelle"
-          className="col-span-2 rounded border border-neutral-300 px-2 py-1.5 text-sm md:col-span-1"
-        />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={0}
-          required
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          placeholder="Montant"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <select
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        >
-          {Object.entries(PAYMENT_METHOD_LABELS).map(([value, lbl]) => (
-            <option key={value} value={value}>
-              {lbl}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Enregistrer
-        </button>
-        {error && <p className="col-span-full text-sm text-red-600">{error}</p>}
-      </form>
-
-      <div className="rounded-lg border border-neutral-200 bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-900">Depenses (periode en cours)</h2>
-          <span className="text-sm font-semibold text-neutral-900">Total : {formatFcfa(total)}</span>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-500">
-              <th className="pb-2 font-normal">Date</th>
-              <th className="pb-2 font-normal">Libelle</th>
-              <th className="pb-2 font-normal">Categorie</th>
-              <th className="pb-2 font-normal text-right">Montant</th>
-              <th className="pb-2 font-normal">Paiement</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((ex) => (
-              <tr key={ex.id} className="border-t border-neutral-100">
-                <td className="py-1.5 text-neutral-700">
-                  {new Date(ex.expenseDate).toLocaleDateString("fr-FR")}
-                </td>
-                <td className="py-1.5 text-neutral-700">{ex.label}</td>
-                <td className="py-1.5 text-neutral-500">{ex.category}</td>
-                <td className="py-1.5 text-right text-neutral-900">{formatFcfa(Number(ex.amount))}</td>
-                <td className="py-1.5 text-neutral-500">
-                  {PAYMENT_METHOD_LABELS[ex.paymentMethod] ?? ex.paymentMethod}
-                </td>
-              </tr>
-            ))}
-            {expenses.length === 0 && (
-              <tr>
-                <td className="py-2 text-neutral-400" colSpan={5}>
-                  Aucune charge enregistree sur la periode.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Charges &amp; depenses</h1>
+        <p className="text-sm text-muted-foreground">Reserve au gerant.</p>
       </div>
+
+      <Card>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                required
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5 lg:col-span-2">
+              <Label>Libelle</Label>
+              <Input required value={label} onChange={(e) => setLabel(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Categorie</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Montant</Label>
+              <Input
+                type="number"
+                min={0}
+                required
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Paiement</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, lbl]) => (
+                    <SelectItem key={value} value={value}>
+                      {lbl}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={submitting} className="lg:col-span-6">
+              Enregistrer
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle className="text-sm">Depenses (periode en cours)</CardTitle>
+          <span className="font-figures text-sm font-semibold">Total : {formatFcfa(total)}</span>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Libelle</TableHead>
+                <TableHead>Categorie</TableHead>
+                <TableHead className="text-right">Montant</TableHead>
+                <TableHead>Paiement</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {expenses.map((ex) => (
+                <TableRow key={ex.id}>
+                  <TableCell className="font-figures text-muted-foreground">
+                    {new Date(ex.expenseDate).toLocaleDateString("fr-FR")}
+                  </TableCell>
+                  <TableCell>{ex.label}</TableCell>
+                  <TableCell className="text-muted-foreground">{ex.category}</TableCell>
+                  <TableCell className="font-figures text-right font-medium">
+                    {formatFcfa(Number(ex.amount))}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {PAYMENT_METHOD_LABELS[ex.paymentMethod] ?? ex.paymentMethod}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {expenses.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Aucune charge enregistree sur la periode.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

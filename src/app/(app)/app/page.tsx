@@ -1,42 +1,92 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  Banknote,
+  PackageSearch,
+  Receipt,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa, formatPercent } from "@/lib/format";
 import type { DashboardData } from "@/lib/types";
+import { StatCard } from "@/components/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
+function CategoryTable({
+  title,
+  rows,
+  emptyLabel,
+}: {
+  title: string;
+  rows: { category: string; amount: number; percentage: number }[];
+  emptyLabel: string;
+}) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-4">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div
-        className={`mt-1 text-2xl font-semibold ${
-          tone === "good" ? "text-emerald-600" : tone === "bad" ? "text-red-600" : "text-neutral-900"
-        }`}
-      >
-        {value}
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+        ) : (
+          <Table>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.category}>
+                  <TableCell className="text-muted-foreground">{row.category}</TableCell>
+                  <TableCell className="font-figures text-right">{formatFcfa(row.amount)}</TableCell>
+                  <TableCell className="font-figures w-16 text-right text-muted-foreground">
+                    {formatPercent(row.percentage)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 function StockAlerts({ alerts, alertsCount }: { alerts: DashboardData["stock"]["alerts"]; alertsCount: number }) {
   if (alerts.length === 0) return null;
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-      <h2 className="mb-3 text-sm font-semibold text-red-800">
-        Articles a reapprovisionner ({alertsCount})
-      </h2>
-      <ul className="space-y-1 text-sm text-red-900">
-        {alerts.map((p) => (
-          <li key={p.id} className="flex justify-between">
-            <span>{p.name}</span>
-            <span>
-              Stock {p.currentStock} / seuil {p.stockMinThreshold}
-            </span>
-          </li>
+    <Alert variant="destructive">
+      <AlertTriangle className="size-4" />
+      <AlertTitle>Articles a reapprovisionner ({alertsCount})</AlertTitle>
+      <AlertDescription>
+        <ul className="mt-2 space-y-1">
+          {alerts.map((p) => (
+            <li key={p.id} className="flex justify-between gap-4">
+              <span>{p.name}</span>
+              <span className="font-figures shrink-0">
+                {p.currentStock} / seuil {p.stockMinThreshold}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-8 w-56" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24" />
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
@@ -51,23 +101,31 @@ export default function DashboardPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <p className="text-red-600">{error}</p>;
-  if (!data) return <p className="text-neutral-500">Chargement...</p>;
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="size-4" />
+        <AlertTitle>{error}</AlertTitle>
+      </Alert>
+    );
+  }
+  if (!data) return <DashboardSkeleton />;
 
   // Vue barman : uniquement le stock, pas les chiffres financiers du bar.
   if (data.restricted) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-neutral-900">Stock</h1>
-          <p className="text-sm text-neutral-500">
+          <h1 className="text-2xl font-semibold tracking-tight">Stock</h1>
+          <p className="text-sm text-muted-foreground">
             Les chiffres financiers du bar sont reserves au gerant.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Card
+          <StatCard
             label="Alertes stock"
             value={String(data.stock.alertsCount)}
+            icon={PackageSearch}
             tone={data.stock.alertsCount > 0 ? "bad" : "good"}
           />
         </div>
@@ -81,92 +139,55 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-neutral-900">Tableau de bord</h1>
-        <p className="text-sm text-neutral-500">
+        <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
+        <p className="text-sm text-muted-foreground">
           Periode du {new Date(data.period.from).toLocaleDateString("fr-FR")} au{" "}
-          {new Date(data.period.to).toLocaleDateString("fr-FR")} — comparaison CA/charges sur la
+          {new Date(data.period.to).toLocaleDateString("fr-FR")} — CA et charges compares sur la
           meme fenetre.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card label="CA Net" value={formatFcfa(data.revenue.net)} />
-        <Card label="Charges (periode)" value={formatFcfa(data.expenses.total)} />
-        <Card label="Benefice net" value={formatFcfa(data.result.netProfit)} tone={profitTone} />
-        <Card label="Marge nette" value={formatPercent(data.result.marginPct)} tone={profitTone} />
-        <Card label="Ticket moyen" value={formatFcfa(data.revenue.avgTicket)} />
-        <Card label="Nb ventes" value={String(data.revenue.salesCount)} />
-        <Card label="Valeur stock" value={formatFcfa(data.stock.totalValue)} />
-        <Card
+        <StatCard label="CA Net" value={formatFcfa(data.revenue.net)} icon={Banknote} />
+        <StatCard label="Charges (periode)" value={formatFcfa(data.expenses.total)} icon={Receipt} />
+        <StatCard label="Benefice net" value={formatFcfa(data.result.netProfit)} icon={Wallet} tone={profitTone} />
+        <StatCard label="Marge nette" value={formatPercent(data.result.marginPct)} icon={TrendingUp} tone={profitTone} />
+        <StatCard label="Ticket moyen" value={formatFcfa(data.revenue.avgTicket)} />
+        <StatCard label="Nb ventes" value={String(data.revenue.salesCount)} />
+        <StatCard label="Valeur stock" value={formatFcfa(data.stock.totalValue)} />
+        <StatCard
           label="Alertes stock"
           value={String(data.stock.alertsCount)}
+          icon={PackageSearch}
           tone={data.stock.alertsCount > 0 ? "bad" : "good"}
         />
       </div>
 
       {data.result.monthlyRevenueTarget !== null && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-4">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-neutral-600">
-              Objectif CA mensuel : {formatFcfa(data.result.monthlyRevenueTarget)}
-            </span>
-            <span className="font-medium text-neutral-900">
-              {formatPercent(data.result.goalProgressPct)}
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div
-              className="h-full bg-emerald-500"
-              style={{ width: `${Math.min(100, Math.max(0, data.result.goalProgressPct ?? 0))}%` }}
-            />
-          </div>
-        </div>
+        <Card>
+          <CardContent className="pt-2">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Objectif CA mensuel : <span className="font-figures">{formatFcfa(data.result.monthlyRevenueTarget)}</span>
+              </span>
+              <span className="font-figures font-medium">{formatPercent(data.result.goalProgressPct)}</span>
+            </div>
+            <Progress value={Math.min(100, Math.max(0, data.result.goalProgressPct ?? 0))} />
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-neutral-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-neutral-900">Ventes par categorie</h2>
-          <table className="w-full text-sm">
-            <tbody>
-              {data.revenueByCategory.map((row) => (
-                <tr key={row.category} className="border-t border-neutral-100">
-                  <td className="py-1.5 text-neutral-700">{row.category}</td>
-                  <td className="py-1.5 text-right text-neutral-900">{formatFcfa(row.amount)}</td>
-                  <td className="py-1.5 pl-3 text-right text-neutral-500">
-                    {formatPercent(row.percentage)}
-                  </td>
-                </tr>
-              ))}
-              {data.revenueByCategory.length === 0 && (
-                <tr>
-                  <td className="py-2 text-neutral-400">Aucune vente sur la periode.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="rounded-lg border border-neutral-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-neutral-900">Repartition des charges</h2>
-          <table className="w-full text-sm">
-            <tbody>
-              {data.expenses.byCategory.map((row) => (
-                <tr key={row.category} className="border-t border-neutral-100">
-                  <td className="py-1.5 text-neutral-700">{row.category}</td>
-                  <td className="py-1.5 text-right text-neutral-900">{formatFcfa(row.amount)}</td>
-                  <td className="py-1.5 pl-3 text-right text-neutral-500">
-                    {formatPercent(row.percentage)}
-                  </td>
-                </tr>
-              ))}
-              {data.expenses.byCategory.length === 0 && (
-                <tr>
-                  <td className="py-2 text-neutral-400">Aucune charge sur la periode.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CategoryTable
+          title="Ventes par categorie"
+          rows={data.revenueByCategory}
+          emptyLabel="Aucune vente sur la periode."
+        />
+        <CategoryTable
+          title="Repartition des charges"
+          rows={data.expenses.byCategory}
+          emptyLabel="Aucune charge sur la periode."
+        />
       </div>
 
       <StockAlerts alerts={data.stock.alerts} alertsCount={data.stock.alertsCount} />

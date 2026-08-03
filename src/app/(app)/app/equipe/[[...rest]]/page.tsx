@@ -15,8 +15,8 @@ export default async function EquipePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-neutral-900">Equipe</h1>
-        <p className="text-sm text-neutral-500">
+        <h1 className="text-2xl font-semibold tracking-tight">Equipe</h1>
+        <p className="text-sm text-muted-foreground">
           Invitez vos barmen et gerez les roles. Un gerant voit tout, un barman ne voit que la
           saisie des ventes et le stock.
         </p>

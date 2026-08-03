@@ -1,16 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Minus, Plus, RefreshCw, Search, WifiOff } from "lucide-react";
+import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, type Product, type Sale } from "@/lib/types";
 import { enqueueSale, getQueue, syncQueue, type QueuedSale } from "@/lib/offline-sales-queue";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function VentesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  // Lecture synchrone au premier rendu (pas dans un effet) : localStorage
-  // et navigator.onLine sont deja disponibles au montage cote client.
   const [queue, setQueue] = useState<QueuedSale[]>(() =>
     typeof window === "undefined" ? [] : getQueue()
   );
@@ -18,9 +25,9 @@ export default function VentesPage() {
     typeof navigator === "undefined" ? true : navigator.onLine
   );
   const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [search, setSearch] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
@@ -35,8 +42,9 @@ export default function VentesPage() {
     if (getQueue().length === 0) return;
     setSyncing(true);
     try {
-      await syncQueue();
+      const { synced } = await syncQueue();
       setQueue(getQueue());
+      if (synced > 0) toast.success(`${synced} vente(s) synchronisee(s)`);
       loadAll();
     } finally {
       setSyncing(false);
@@ -54,8 +62,6 @@ export default function VentesPage() {
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    // Au cas ou le navigateur revient en ligne sans evenement fiable
-    // (frequent sur mobile), on retente periodiquement.
     const interval = setInterval(() => {
       if (navigator.onLine) runSync();
     }, 30000);
@@ -67,21 +73,34 @@ export default function VentesPage() {
     };
   }, [runSync]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => p.name.toLowerCase().includes(q));
+  }, [products, search]);
 
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
+  const selectedProduct = products.find((p) => p.id === productId);
 
-    // Hors-ligne (ou reseau qui vient de tomber) : on met en file locale
-    // plutot que de faire echouer la saisie — c'est le scenario terrain
-    // le plus critique (vendredi soir, reseau sature).
+  function selectProduct(id: string) {
+    setProductId(id);
+    setQuantity(1);
+    setDiscount(0);
+  }
+
+  async function handleSubmit() {
+    if (!selectedProduct) return;
+
     if (!navigator.onLine) {
-      enqueueSale({ productId, productName: product.name, quantity, discount, paymentMethod });
+      enqueueSale({
+        productId: selectedProduct.id,
+        productName: selectedProduct.name,
+        quantity,
+        discount,
+        paymentMethod,
+      });
       setQueue(getQueue());
-      setQuantity(1);
-      setDiscount(0);
+      toast.warning("Hors-ligne — vente mise en attente");
+      setProductId("");
       return;
     }
 
@@ -89,180 +108,236 @@ export default function VentesPage() {
     try {
       await apiFetch("/api/v1/sales", {
         method: "POST",
-        body: JSON.stringify({ productId, quantity, discount, paymentMethod }),
+        body: JSON.stringify({ productId: selectedProduct.id, quantity, discount, paymentMethod }),
       });
-      setQuantity(1);
-      setDiscount(0);
+      toast.success(`Vente enregistree — ${selectedProduct.name} x${quantity}`);
+      setProductId("");
       loadAll();
     } catch (err) {
-      // Le fetch a echoue reellement (pas juste un refus metier) : on
-      // considere qu'on vient de perdre le reseau et on met en file plutot
-      // que de perdre la vente.
-      enqueueSale({ productId, productName: product.name, quantity, discount, paymentMethod });
+      enqueueSale({
+        productId: selectedProduct.id,
+        productName: selectedProduct.name,
+        quantity,
+        discount,
+        paymentMethod,
+      });
       setQueue(getQueue());
-      setError(
+      toast.warning(
         err instanceof Error && err.message.startsWith("Erreur")
-          ? "Connexion perdue — vente mise en attente, elle sera envoyee automatiquement."
-          : err instanceof Error
-            ? err.message
-            : "Erreur"
+          ? "Connexion perdue — vente mise en attente"
+          : (err instanceof Error ? err.message : "Erreur — vente mise en attente")
       );
-      setQuantity(1);
-      setDiscount(0);
+      setProductId("");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const selectedProduct = products.find((p) => p.id === productId);
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">Ventes du jour</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Ventes du jour</h1>
+          <p className="text-sm text-muted-foreground">Touchez un article pour enregistrer une vente.</p>
+        </div>
         {!isOnline && (
-          <span className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
-            Hors-ligne — les ventes sont mises en attente
-          </span>
+          <Badge variant="outline" className="gap-1.5 border-warning/40 text-warning">
+            <WifiOff className="size-3.5" />
+            Hors-ligne
+          </Badge>
         )}
       </div>
 
       {queue.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-          <span className="text-amber-800">
+        <Alert className="border-warning/40 text-warning [&>svg]:text-warning">
+          <RefreshCw className={cn("size-4", syncing && "animate-spin")} />
+          <AlertTitle>
             {queue.length} vente{queue.length > 1 ? "s" : ""} en attente de synchronisation
-          </span>
-          <button
-            onClick={runSync}
-            disabled={syncing || !isOnline}
-            className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {syncing ? "Synchronisation..." : "Synchroniser maintenant"}
-          </button>
-        </div>
+          </AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-3 text-warning/90">
+            <span>Envoi automatique des que la connexion revient.</span>
+            <Button size="sm" variant="outline" onClick={runSync} disabled={syncing || !isOnline}>
+              Synchroniser
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-2 gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-5"
-      >
-        <select
-          required
-          value={productId}
-          onChange={(e) => setProductId(e.target.value)}
-          className="col-span-2 rounded border border-neutral-300 px-2 py-1.5 text-sm md:col-span-1"
-        >
-          <option value="">Article...</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} — {formatFcfa(Number(p.unitPrice))} (stock {p.currentStock})
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={1}
-          required
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          placeholder="Qte"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          value={discount}
-          onChange={(e) => setDiscount(Number(e.target.value))}
-          placeholder="Remise (FCFA)"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-        <select
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        >
-          {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          disabled={submitting || !productId}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Enregistrer la vente
-        </button>
-        {selectedProduct && (
-          <p className="col-span-full text-xs text-neutral-500">
-            Total brut estime : {formatFcfa(Number(selectedProduct.unitPrice) * quantity - discount)}
-          </p>
-        )}
-        {error && <p className="col-span-full text-sm text-amber-700">{error}</p>}
-      </form>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-3 lg:col-span-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un article..."
+              className="pl-9"
+            />
+          </div>
 
-      {queue.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-neutral-900">En attente de synchronisation</h2>
-          <ul className="space-y-1.5 text-sm">
-            {queue.map((q) => (
-              <li key={q.localId} className="flex items-center justify-between border-t border-neutral-100 pt-1.5 first:border-t-0 first:pt-0">
-                <span className="text-neutral-700">
-                  {q.productName} x{q.quantity}
-                </span>
-                {q.lastError ? (
-                  <span className="text-xs text-red-600">{q.lastError}</span>
-                ) : (
-                  <span className="text-xs text-amber-600">en attente</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="rounded-lg border border-neutral-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900">Historique (periode en cours)</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-500">
-              <th className="pb-2 font-normal">Date</th>
-              <th className="pb-2 font-normal">Article</th>
-              <th className="pb-2 font-normal text-right">Qte</th>
-              <th className="pb-2 font-normal text-right">CA Net</th>
-              <th className="pb-2 font-normal">Paiement</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sales.map((s) => {
-              const product = products.find((p) => p.id === s.productId);
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {filteredProducts.map((p) => {
+              const active = p.id === productId;
+              const lowStock = p.currentStock <= p.stockMinThreshold;
               return (
-                <tr key={s.id} className="border-t border-neutral-100">
-                  <td className="py-1.5 text-neutral-700">
-                    {new Date(s.soldAt).toLocaleString("fr-FR")}
-                  </td>
-                  <td className="py-1.5 text-neutral-700">{product?.name ?? "—"}</td>
-                  <td className="py-1.5 text-right text-neutral-700">{s.quantity}</td>
-                  <td className="py-1.5 text-right text-neutral-900">
-                    {formatFcfa(Number(s.netAmount))}
-                  </td>
-                  <td className="py-1.5 text-neutral-500">
-                    {PAYMENT_METHOD_LABELS[s.paymentMethod] ?? s.paymentMethod}
-                  </td>
-                </tr>
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectProduct(p.id)}
+                  className={cn(
+                    "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 ring-1 ring-primary"
+                      : "border-border bg-card hover:border-primary/50"
+                  )}
+                >
+                  <span className="text-sm font-medium leading-tight">{p.name}</span>
+                  <span className="font-figures text-sm text-muted-foreground">
+                    {formatFcfa(Number(p.unitPrice))}
+                  </span>
+                  <Badge variant={lowStock ? "destructive" : "secondary"} className="font-figures text-[10px]">
+                    stock {p.currentStock}
+                  </Badge>
+                </button>
               );
             })}
-            {sales.length === 0 && (
-              <tr>
-                <td className="py-2 text-neutral-400" colSpan={5}>
-                  Aucune vente enregistree sur la periode.
-                </td>
-              </tr>
+            {filteredProducts.length === 0 && (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                Aucun article ne correspond a la recherche.
+              </p>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        <Card className="h-fit lg:sticky lg:top-20">
+          <CardHeader>
+            <CardTitle className="text-sm">Vente en cours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!selectedProduct ? (
+              <p className="text-sm text-muted-foreground">Selectionnez un article dans la liste.</p>
+            ) : (
+              <>
+                <div>
+                  <p className="font-medium">{selectedProduct.name}</p>
+                  <p className="font-figures text-sm text-muted-foreground">
+                    {formatFcfa(Number(selectedProduct.unitPrice))} / unite
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Quantite</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="size-8"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    >
+                      <Minus className="size-3.5" />
+                    </Button>
+                    <span className="font-figures w-8 text-center text-lg font-semibold">{quantity}</span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="size-8"
+                      onClick={() => setQuantity((q) => Math.min(selectedProduct.currentStock, q + 1))}
+                    >
+                      <Plus className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-sm text-muted-foreground">Remise (FCFA)</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={discount}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-sm text-muted-foreground">Paiement</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={paymentMethod === value ? "default" : "outline"}
+                        onClick={() => setPaymentMethod(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-border pt-3">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="font-figures text-lg font-semibold">
+                    {formatFcfa(Number(selectedProduct.unitPrice) * quantity - discount)}
+                  </span>
+                </div>
+
+                <Button className="w-full" size="lg" onClick={handleSubmit} disabled={submitting}>
+                  Enregistrer la vente
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Historique (periode en cours)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Article</TableHead>
+                <TableHead className="text-right">Qte</TableHead>
+                <TableHead className="text-right">CA Net</TableHead>
+                <TableHead>Paiement</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sales.map((s) => {
+                const product = products.find((p) => p.id === s.productId);
+                return (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-figures text-muted-foreground">
+                      {new Date(s.soldAt).toLocaleString("fr-FR")}
+                    </TableCell>
+                    <TableCell>{product?.name ?? "—"}</TableCell>
+                    <TableCell className="font-figures text-right">{s.quantity}</TableCell>
+                    <TableCell className="font-figures text-right font-medium">
+                      {formatFcfa(Number(s.netAmount))}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {PAYMENT_METHOD_LABELS[s.paymentMethod] ?? s.paymentMethod}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {sales.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Aucune vente enregistree sur la periode.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
