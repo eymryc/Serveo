@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LogoMark } from "@/components/logo-mark";
 
 const FEATURES = [
   {
@@ -64,10 +65,8 @@ export default async function LandingPage() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <GlassWater className="size-4" />
-            </span>
-            BarPilot
+            <LogoMark size={28} />
+            Serveo
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -84,7 +83,7 @@ export default async function LandingPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:py-28">
           <p className="mb-4 inline-flex items-center border border-border bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            Logiciel de gestion pour bars &amp; buvettes
+            Gerer. Servir. Simplifier.
           </p>
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
             Le comptoir, <span className="text-primary">sous controle</span>.
@@ -123,7 +122,7 @@ export default async function LandingPage() {
       </main>
 
       <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-        BarPilot — FCFA · Orange Money · MTN MoMo · Wave
+        Serveo — FCFA · Orange Money · MTN MoMo · Wave
       </footer>
     </div>
   );

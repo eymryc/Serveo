@@ -11,6 +11,13 @@ export type CreateProductInput = {
   categoryId?: string | null;
   unitPrice: number;
   purchasePrice: number;
+  // Le stock reste toujours compte en unites (unitLabel : "bouteille",
+  // "sachet"...). packageLabel/unitsPerPackage decrivent le conditionnement
+  // d'achat (ex: "Casier" de 24) — uniquement pour convertir les
+  // receptions de stock, la vente reste toujours a l'unite.
+  unitLabel?: string;
+  packageLabel?: string | null;
+  unitsPerPackage?: number | null;
   initialStock: number;
   stockMinThreshold: number;
 };
@@ -27,6 +34,9 @@ export async function createProduct(input: CreateProductInput) {
         name: input.name,
         unitPrice: input.unitPrice.toString(),
         purchasePrice: input.purchasePrice.toString(),
+        unitLabel: input.unitLabel ?? "unite",
+        packageLabel: input.packageLabel ?? null,
+        unitsPerPackage: input.unitsPerPackage ?? null,
         currentStock: input.initialStock,
         stockMinThreshold: input.stockMinThreshold,
       })
@@ -46,12 +56,48 @@ export async function createProduct(input: CreateProductInput) {
   });
 }
 
-export async function listProducts(organizationId: string) {
+export type UpdateProductInput = Partial<{
+  name: string;
+  categoryId: string | null;
+  unitPrice: number;
+  purchasePrice: number;
+  unitLabel: string;
+  packageLabel: string | null;
+  unitsPerPackage: number | null;
+  stockMinThreshold: number;
+  isActive: number;
+}>;
+
+// Modifie la fiche catalogue d'un article (nom, categorie, prix,
+// conditionnement...) — pas le niveau de stock, qui ne bouge que par
+// mouvement de stock (createStockMovement / createSale).
+export async function updateProduct(organizationId: string, id: string, patch: UpdateProductInput) {
+  const db = getDb();
+
+  const values: Record<string, unknown> = { ...patch };
+  if (patch.unitPrice !== undefined) values.unitPrice = patch.unitPrice.toString();
+  if (patch.purchasePrice !== undefined) values.purchasePrice = patch.purchasePrice.toString();
+
+  const [updated] = await db
+    .update(products)
+    .set(values)
+    .where(and(eq(products.id, id), eq(products.organizationId, organizationId)))
+    .returning();
+
+  if (!updated) throw new HttpError(404, "Article introuvable");
+  return updated;
+}
+
+export async function listProducts(organizationId: string, includeInactive = false) {
   const db = getDb();
   return db
     .select()
     .from(products)
-    .where(and(eq(products.organizationId, organizationId), eq(products.isActive, 1)));
+    .where(
+      includeInactive
+        ? eq(products.organizationId, organizationId)
+        : and(eq(products.organizationId, organizationId), eq(products.isActive, 1))
+    );
 }
 
 // Le prix d'achat revele la marge par article : masque pour tout role qui

@@ -35,7 +35,7 @@ export function AppClerkProvider({ children }: { children: React.ReactNode }) {
     <ClerkProvider
       localization={frFR}
       appearance={{
-        variables: { ...colors, borderRadius: "0.625rem" },
+        variables: { ...colors, borderRadius: "0px" },
       }}
     >
       {children}

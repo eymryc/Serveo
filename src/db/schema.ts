@@ -94,6 +94,15 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
   purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
+  // Le stock est TOUJOURS compte et vendu a l'unite (ex: la bouteille) —
+  // c'est le conditionnement d'achat qui varie. unitLabel nomme cette
+  // unite ("bouteille", "sachet"...) ; packageLabel + unitsPerPackage
+  // decrivent le conditionnement d'appro ("Casier de 24") pour que la
+  // reception de stock puisse se saisir en casiers/cartons et se
+  // convertir automatiquement en unites.
+  unitLabel: text("unit_label").notNull().default("unite"),
+  packageLabel: text("package_label"),
+  unitsPerPackage: integer("units_per_package"),
   // Cache derive de la somme des stock_movements — source de verite = stock_movements.
   currentStock: integer("current_stock").notNull().default(0),
   stockMinThreshold: integer("stock_min_threshold").notNull().default(5),

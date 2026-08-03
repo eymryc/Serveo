@@ -6,6 +6,9 @@ export type Product = {
   unitPrice: string;
   // Absent pour un role non-admin (masque cote API : revele la marge).
   purchasePrice?: string;
+  unitLabel: string;
+  packageLabel: string | null;
+  unitsPerPackage: number | null;
   currentStock: number;
   stockMinThreshold: number;
   isActive: number;
@@ -53,20 +56,25 @@ export type Organization = {
   activePaymentMethods: string[];
 };
 
+export type PeriodKey = "today" | "week" | "month" | "year";
+
 // Vue reduite renvoyee au barman : uniquement le stock, pas les chiffres
 // financiers (cf. audit sur la separation des roles).
 export type RestrictedDashboardData = {
   restricted: true;
-  period: { from: string; to: string };
+  period: { key: PeriodKey; from: string; to: string };
   stock: { alerts: Product[]; alertsCount: number };
 };
 
 export type FullDashboardData = {
   restricted: false;
-  period: { from: string; to: string };
-  revenue: { gross: number; net: number; salesCount: number; avgTicket: number };
+  period: { key: PeriodKey; from: string; to: string; granularity: "hour" | "day" | "month" };
+  revenue: { gross: number; net: number; salesCount: number; avgTicket: number; deltaPct: number | null };
+  timeSeries: { bucket: string; net: number }[];
   expenses: { total: number; byCategory: { category: string; amount: number; percentage: number }[] };
   revenueByCategory: { category: string; amount: number; percentage: number }[];
+  paymentMethodBreakdown: { method: string; amount: number; percentage: number }[];
+  topProducts: { productId: string; name: string; quantity: number; amount: number }[];
   result: { netProfit: number; marginPct: number | null; goalProgressPct: number | null; monthlyRevenueTarget: number | null };
   stock: { totalValue: number; activeProductsCount: number; alerts: Product[]; alertsCount: number };
 };

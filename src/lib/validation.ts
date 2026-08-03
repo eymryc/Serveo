@@ -8,8 +8,27 @@ export const createProductSchema = z.object({
   categoryId: z.string().uuid().optional().nullable(),
   unitPrice: z.coerce.number().nonnegative(),
   purchasePrice: z.coerce.number().nonnegative().default(0),
+  // Le stock reste toujours compte en unites (unitLabel : "bouteille",
+  // "sachet"...). packageLabel/unitsPerPackage ne decrivent que le
+  // conditionnement d'achat (ex: "Casier" de 24) pour convertir les
+  // receptions de stock — la vente reste toujours a l'unite.
+  unitLabel: z.string().min(1).max(50).default("unite"),
+  packageLabel: z.string().max(50).optional().nullable(),
+  unitsPerPackage: z.coerce.number().int().positive().optional().nullable(),
   initialStock: z.coerce.number().int().nonnegative().default(0),
   stockMinThreshold: z.coerce.number().int().nonnegative().default(5),
+});
+
+export const updateProductSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  categoryId: z.string().uuid().nullable().optional(),
+  unitPrice: z.coerce.number().nonnegative().optional(),
+  purchasePrice: z.coerce.number().nonnegative().optional(),
+  unitLabel: z.string().min(1).max(50).optional(),
+  packageLabel: z.string().max(50).nullable().optional(),
+  unitsPerPackage: z.coerce.number().int().positive().nullable().optional(),
+  stockMinThreshold: z.coerce.number().int().nonnegative().optional(),
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
 });
 
 export const createSaleSchema = z.object({

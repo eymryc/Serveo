@@ -5,8 +5,8 @@
 // tomber en plein coup de feu. La creation de vente hors-ligne elle-meme
 // est geree par l'app (file d'attente localStorage), pas ici.
 
-const SHELL_CACHE = "barpilot-shell-v1";
-const DATA_CACHE = "barpilot-data-v1";
+const SHELL_CACHE = "serveo-shell-v1";
+const DATA_CACHE = "serveo-data-v1";
 
 const SHELL_URLS = ["/app/ventes", "/manifest.webmanifest"];
 

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   computeAvgTicket,
+  computeDeltaPct,
   computeGoalProgressPct,
   computeMarginPct,
   computeNetProfit,
+  granularityFor,
+  previousPeriod,
+  resolvePeriod,
   withPercentages,
 } from "@/lib/dashboard-math";
 
@@ -66,5 +70,71 @@ describe("computeAvgTicket", () => {
 
   it("returns 0 when there are no sales, instead of dividing by zero", () => {
     expect(computeAvgTicket(0, 0)).toBe(0);
+  });
+});
+
+describe("resolvePeriod", () => {
+  it("'today' starts at local midnight", () => {
+    const now = new Date(2026, 7, 3, 14, 30); // 3 aout 2026, 14h30
+    const { from, to } = resolvePeriod("today", now);
+    expect(from).toEqual(new Date(2026, 7, 3, 0, 0, 0, 0));
+    expect(to).toBe(now);
+  });
+
+  it("'week' starts on Monday, even when 'now' is a Sunday", () => {
+    // 2 aout 2026 est un dimanche
+    const sunday = new Date(2026, 7, 2, 10, 0);
+    const { from } = resolvePeriod("week", sunday);
+    expect(from).toEqual(new Date(2026, 6, 27, 0, 0, 0, 0)); // lundi 27 juillet
+  });
+
+  it("'week' starting mid-week rolls back to the same Monday", () => {
+    const wednesday = new Date(2026, 7, 5, 9, 0); // mercredi 5 aout 2026
+    const { from } = resolvePeriod("week", wednesday);
+    expect(from).toEqual(new Date(2026, 7, 3, 0, 0, 0, 0)); // lundi 3 aout
+  });
+
+  it("'month' starts on the 1st", () => {
+    const { from } = resolvePeriod("month", new Date(2026, 7, 20));
+    expect(from).toEqual(new Date(2026, 7, 1, 0, 0, 0, 0));
+  });
+
+  it("'year' starts on January 1st", () => {
+    const { from } = resolvePeriod("year", new Date(2026, 7, 20));
+    expect(from).toEqual(new Date(2026, 0, 1, 0, 0, 0, 0));
+  });
+});
+
+describe("granularityFor", () => {
+  it("maps each period to the right time-series bucket size", () => {
+    expect(granularityFor("today")).toBe("hour");
+    expect(granularityFor("week")).toBe("day");
+    expect(granularityFor("month")).toBe("day");
+    expect(granularityFor("year")).toBe("month");
+  });
+});
+
+describe("previousPeriod", () => {
+  it("returns an equal-length window immediately before 'from'", () => {
+    const from = new Date(2026, 7, 1);
+    const to = new Date(2026, 7, 15);
+    const prev = previousPeriod(from, to);
+    expect(prev.to).toEqual(from);
+    expect(prev.from).toEqual(new Date(2026, 6, 18)); // 14 jours avant le 1er aout
+  });
+});
+
+describe("computeDeltaPct", () => {
+  it("computes a signed percentage change vs the previous period", () => {
+    expect(computeDeltaPct(120, 100)).toBeCloseTo(20, 5);
+    expect(computeDeltaPct(80, 100)).toBeCloseTo(-20, 5);
+  });
+
+  it("returns null instead of +Infinity% when the previous period had zero revenue", () => {
+    expect(computeDeltaPct(500, 0)).toBeNull();
+  });
+
+  it("returns 0 when both periods are zero, not null", () => {
+    expect(computeDeltaPct(0, 0)).toBe(0);
   });
 });

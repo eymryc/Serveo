@@ -6,10 +6,11 @@ import { createProduct, listProducts, stripPurchasePrice } from "@/lib/products"
 // Le prix d'achat (purchasePrice) revele la marge par article — masque
 // pour le barman, qui n'a besoin que du prix de vente et du stock pour
 // travailler.
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { organizationId, orgRole } = await requireTenant();
-    const rows = await listProducts(organizationId);
+    const includeInactive = req.nextUrl.searchParams.get("includeInactive") === "1" && orgRole === "org:admin";
+    const rows = await listProducts(organizationId, includeInactive);
 
     if (orgRole !== "org:admin") {
       return NextResponse.json({ products: stripPurchasePrice(rows) });

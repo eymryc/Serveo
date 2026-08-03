@@ -6,15 +6,18 @@ import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { stripPurchasePrice } from "@/lib/products";
 import {
   computeAvgTicket,
+  computeDeltaPct,
   computeGoalProgressPct,
   computeMarginPct,
   computeNetProfit,
+  granularityFor,
+  previousPeriod,
+  resolvePeriod,
   withPercentages,
+  type PeriodKey,
 } from "@/lib/dashboard-math";
 
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
+const PERIOD_KEYS: PeriodKey[] = ["today", "week", "month", "year"];
 
 // Corrige les bugs constates dans le template Sheets d'origine :
 // - CA et charges sont compares sur LA MEME PERIODE (plus de "5 jours de
@@ -28,10 +31,12 @@ export async function GET(req: NextRequest) {
   try {
     const { organizationId, orgRole } = await requireTenant();
     const { searchParams } = new URL(req.url);
-    const from = searchParams.get("from")
-      ? new Date(searchParams.get("from")!)
-      : startOfMonth(new Date());
-    const to = searchParams.get("to") ? new Date(searchParams.get("to")!) : new Date();
+    const periodParam = searchParams.get("period");
+    const periodKey: PeriodKey = PERIOD_KEYS.includes(periodParam as PeriodKey)
+      ? (periodParam as PeriodKey)
+      : "month";
+    const { from, to } = resolvePeriod(periodKey);
+    const granularity = granularityFor(periodKey);
     const db = getDb();
 
     // Le barman voit le stock (utile pour son travail) mais pas le CA, les
@@ -52,7 +57,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({
         restricted: true,
-        period: { from, to },
+        period: { key: periodKey, from, to },
         stock: { alerts: stripPurchasePrice(stockAlerts), alertsCount: stockAlerts.length },
       });
     }
@@ -86,6 +91,63 @@ export async function GET(req: NextRequest) {
       .select({ total: sql<string>`coalesce(sum(${expenses.amount}), 0)` })
       .from(expenses)
       .where(expensesInPeriod);
+
+    // Periode precedente de meme duree, pour le delta affiche sur le CA Net.
+    const prev = previousPeriod(from, to);
+    const [previousRevenue] = await db
+      .select({ netRevenue: sql<string>`coalesce(sum(${sales.netAmount}), 0)` })
+      .from(sales)
+      .where(
+        and(
+          eq(sales.organizationId, organizationId),
+          gte(sales.soldAt, prev.from),
+          lte(sales.soldAt, prev.to)
+        )
+      );
+
+    // Serie temporelle du CA net pour la courbe — granularite adaptee a la
+    // periode (heure pour "aujourd'hui", jour pour semaine/mois, mois pour
+    // l'annee). Cote d'Ivoire = UTC+0 toute l'annee donc pas de conversion
+    // de fuseau necessaire entre date_trunc (UTC) et l'heure locale.
+    const bucketExpr =
+      granularity === "hour"
+        ? sql<string>`date_trunc('hour', ${sales.soldAt})`
+        : granularity === "month"
+          ? sql<string>`date_trunc('month', ${sales.soldAt})`
+          : sql<string>`date_trunc('day', ${sales.soldAt})`;
+
+    const timeSeriesRaw = await db
+      .select({
+        bucket: bucketExpr,
+        net: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
+      })
+      .from(sales)
+      .where(salesInPeriod)
+      .groupBy(bucketExpr)
+      .orderBy(bucketExpr);
+
+    const paymentMethodRaw = await db
+      .select({
+        method: sales.paymentMethod,
+        amount: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
+      })
+      .from(sales)
+      .where(salesInPeriod)
+      .groupBy(sales.paymentMethod);
+
+    const topProductsRaw = await db
+      .select({
+        productId: products.id,
+        name: products.name,
+        quantity: sql<number>`coalesce(sum(${sales.quantity}), 0)::int`,
+        amount: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
+      })
+      .from(sales)
+      .innerJoin(products, eq(sales.productId, products.id))
+      .where(salesInPeriod)
+      .groupBy(products.id, products.name)
+      .orderBy(sql`sum(${sales.netAmount}) desc`)
+      .limit(5);
 
     const revenueByCategoryRaw = await db
       .select({
@@ -135,6 +197,7 @@ export async function GET(req: NextRequest) {
     const marginPct = computeMarginPct(netRevenue, netProfit);
     const target = org?.monthlyRevenueTarget ? Number(org.monthlyRevenueTarget) : null;
     const goalProgressPct = computeGoalProgressPct(netRevenue, target);
+    const previousNetRevenue = Number(previousRevenue?.netRevenue ?? 0);
 
     const revenueByCategory = withPercentages(
       revenueByCategoryRaw.map((r) => ({ category: r.category, amount: Number(r.amount) })),
@@ -144,18 +207,33 @@ export async function GET(req: NextRequest) {
       expensesByCategoryRaw.map((r) => ({ category: r.category, amount: Number(r.amount) })),
       totalExpenses
     );
+    const paymentMethodBreakdown = withPercentages(
+      paymentMethodRaw.map((r) => ({ method: r.method, amount: Number(r.amount) })),
+      netRevenue
+    );
+    const topProducts = topProductsRaw.map((r) => ({
+      productId: r.productId,
+      name: r.name,
+      quantity: r.quantity,
+      amount: Number(r.amount),
+    }));
+    const timeSeries = timeSeriesRaw.map((r) => ({ bucket: r.bucket, net: Number(r.net) }));
 
     return NextResponse.json({
       restricted: false,
-      period: { from, to },
+      period: { key: periodKey, from, to, granularity },
       revenue: {
         gross: grossRevenue,
         net: netRevenue,
         salesCount,
         avgTicket: computeAvgTicket(netRevenue, salesCount),
+        deltaPct: computeDeltaPct(netRevenue, previousNetRevenue),
       },
+      timeSeries,
       expenses: { total: totalExpenses, byCategory: expensesByCategory },
       revenueByCategory,
+      paymentMethodBreakdown,
+      topProducts,
       result: { netProfit, marginPct, goalProgressPct, monthlyRevenueTarget: target },
       stock: {
         totalValue: Number(stockValueRow?.value ?? 0),

@@ -18,9 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BarPilot — Gestion de bar/buvette",
+  title: "Serveo — Gerer. Servir. Simplifier.",
   description: "Ventes, stock et charges pour bars et buvettes, en temps reel.",
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {

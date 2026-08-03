@@ -9,9 +9,9 @@ import {
   Package,
   Receipt,
   ShoppingCart,
+  Tags,
   Users,
   Settings,
-  GlassWater,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LogoMark } from "@/components/logo-mark";
 
 const ICONS = {
   dashboard: LayoutDashboard,
   ventes: ShoppingCart,
+  articles: Tags,
   stock: Package,
   charges: Receipt,
   equipe: Users,
@@ -79,10 +81,8 @@ export function AppShell({
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-6">
             <Link href="/app" className="flex items-center gap-2 font-semibold text-foreground">
-              <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <GlassWater className="size-4" />
-              </span>
-              <span className="hidden sm:inline">BarPilot</span>
+              <LogoMark size={28} />
+              <span className="hidden sm:inline">Serveo</span>
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
               <NavLinks items={navItems} pathname={pathname} />
@@ -110,7 +110,7 @@ export function AppShell({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64">
-                <SheetTitle className="px-4 pt-4 text-left">BarPilot</SheetTitle>
+                <SheetTitle className="px-4 pt-4 text-left">Serveo</SheetTitle>
                 <nav className="flex flex-col gap-1 p-4">
                   <NavLinks items={navItems} pathname={pathname} />
                 </nav>

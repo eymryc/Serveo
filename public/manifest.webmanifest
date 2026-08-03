@@ -1,12 +1,12 @@
 {
-  "name": "BarPilot",
-  "short_name": "BarPilot",
-  "description": "Ventes, stock et charges pour bars et buvettes.",
+  "name": "Serveo",
+  "short_name": "Serveo",
+  "description": "Gerer. Servir. Simplifier. Ventes, stock et charges pour bars et buvettes.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fafafa",
-  "theme_color": "#171717",
+  "background_color": "#00020d",
+  "theme_color": "#00020d",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }

@@ -3,8 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { AppShell, type NavItem } from "@/components/app-shell";
 
 const NAV_ITEMS: (NavItem & { adminOnly: boolean })[] = [
-  { href: "/app", label: "Dashboard", icon: "dashboard", adminOnly: false },
+  { href: "/app", label: "Tableau de bord", icon: "dashboard", adminOnly: false },
   { href: "/app/ventes", label: "Ventes", icon: "ventes", adminOnly: false },
+  { href: "/app/articles", label: "Articles", icon: "articles", adminOnly: true },
   { href: "/app/stock", label: "Stock", icon: "stock", adminOnly: false },
   { href: "/app/charges", label: "Charges", icon: "charges", adminOnly: true },
   { href: "/app/equipe", label: "Equipe", icon: "equipe", adminOnly: true },

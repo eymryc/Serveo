@@ -8,7 +8,7 @@
 // entre temps), la vente reste en file avec son erreur — a arbitrer
 // manuellement, pas ecrasee silencieusement.
 
-const STORAGE_KEY = "barpilot:offline-sales-queue";
+const STORAGE_KEY = "serveo:offline-sales-queue";
 
 export type QueuedSale = {
   localId: string;
