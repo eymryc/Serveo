@@ -19,6 +19,24 @@ export const paymentMethodValues = [
   "credit_client",
 ] as const;
 
+// Unite dans laquelle l'article est vendu et compte en stock.
+export const unitLabelValues = [
+  "bouteille",
+  "canette",
+  "sachet",
+  "verre",
+  "bidon",
+] as const;
+
+// Format dans lequel le bar achete chez le fournisseur (optionnel).
+export const packageLabelValues = [
+  "casier",
+  "carton",
+  "pack",
+  "caisse",
+  "fut",
+] as const;
+
 // Un tenant = une organisation Clerk = un bar/buvette.
 // L'id est directement l'org_id Clerk (pas de duplication d'identite).
 export const organizations = pgTable("organizations", {
@@ -95,12 +113,11 @@ export const products = pgTable("products", {
   unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
   purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
   // Le stock est TOUJOURS compte et vendu a l'unite (ex: la bouteille) —
-  // c'est le conditionnement d'achat qui varie. unitLabel nomme cette
-  // unite ("bouteille", "sachet"...) ; packageLabel + unitsPerPackage
-  // decrivent le conditionnement d'appro ("Casier de 24") pour que la
-  // reception de stock puisse se saisir en casiers/cartons et se
-  // convertir automatiquement en unites.
-  unitLabel: text("unit_label").notNull().default("unite"),
+  // c'est le format d'achat fournisseur qui varie. unitLabel nomme cette
+  // unite (cf. unitLabelValues) ; packageLabel + unitsPerPackage
+  // decrivent le colis d'appro (cf. packageLabelValues, ex. casier de 24)
+  // pour convertir automatiquement les receptions de stock en unites.
+  unitLabel: text("unit_label").notNull().default("bouteille"),
   packageLabel: text("package_label"),
   unitsPerPackage: integer("units_per_package"),
   // Cache derive de la somme des stock_movements — source de verite = stock_movements.
@@ -128,9 +145,13 @@ export const sales = pgTable("sales", {
   netAmount: numeric("net_amount", { precision: 12, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   createdByUserId: text("created_by_user_id").notNull(),
+  // Etiquette partagee par toutes les lignes d'un meme encaissement
+  // multi-articles — pour les regrouper comme une facture a l'affichage.
+  batchId: uuid("batch_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("sales_org_soldat_idx").on(t.organizationId, t.soldAt),
+  index("sales_batch_idx").on(t.batchId),
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -154,10 +175,19 @@ export const stockMovements = pgTable("stock_movements", {
   quantityDelta: integer("quantity_delta").notNull(), // positif = entree, negatif = sortie
   referenceSaleId: uuid("reference_sale_id").references(() => sales.id, { onDelete: "set null" }),
   note: text("note"),
+  // Etiquette de correlation (pas une FK) partagee par toutes les lignes
+  // d'une meme saisie multi-articles, pour les regrouper a l'affichage.
+  // Null pour les mouvements individuels (vente, stock initial).
+  batchId: uuid("batch_id"),
+  // Quand ce mouvement fait partie d'une annulation, pointe vers le
+  // batchId du lot annule — sert a la fois de trace et de garde-fou
+  // contre une double annulation.
+  reversalOfBatchId: uuid("reversal_of_batch_id"),
   createdByUserId: text("created_by_user_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("stock_movements_org_product_idx").on(t.organizationId, t.productId),
+  index("stock_movements_batch_idx").on(t.batchId),
 ]);
 
 export const expenses = pgTable("expenses", {

@@ -59,9 +59,27 @@ describe("createProductSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("defaults stockMinThreshold to 5, matching the sheet's default alert threshold", () => {
+  it("defaults stockMinThreshold to 5, matching the form's default alert threshold", () => {
     const result = createProductSchema.parse({ name: "Heineken 33cl", unitPrice: 600 });
     expect(result.stockMinThreshold).toBe(5);
+  });
+
+  it("rejects an unknown unitLabel or packageLabel", () => {
+    expect(
+      createProductSchema.safeParse({
+        name: "Heineken 33cl",
+        unitPrice: 600,
+        unitLabel: "tonneau",
+      }).success
+    ).toBe(false);
+
+    expect(
+      createProductSchema.safeParse({
+        name: "Heineken 33cl",
+        unitPrice: 600,
+        packageLabel: "palette",
+      }).success
+    ).toBe(false);
   });
 });
 
@@ -71,8 +89,26 @@ describe("createStockMovementSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts a negative delta for adjustments (e.g. breakage/loss)", () => {
+  it("accepts a negative delta for adjustments when a note explains why (e.g. breakage/loss)", () => {
+    const result = createStockMovementSchema.safeParse({
+      type: "adjustment",
+      quantityDelta: -3,
+      note: "Casse",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a negative delta without a note — a stock exit must be explained", () => {
     const result = createStockMovementSchema.safeParse({ type: "adjustment", quantityDelta: -3 });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts an optional occurredAt to backdate a movement", () => {
+    const result = createStockMovementSchema.safeParse({
+      type: "entry",
+      quantityDelta: 12,
+      occurredAt: "2026-01-01",
+    });
     expect(result.success).toBe(true);
   });
 });

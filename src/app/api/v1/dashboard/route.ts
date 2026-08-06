@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { expenseCategories, expenses, organizations, productCategories, products, sales } from "@/db/schema";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
     // Le barman voit le stock (utile pour son travail) mais pas le CA, les
     // charges, la marge ni la valeur du stock — ce sont des donnees
     // financieres reservees au gerant (cf. audit sur la separation des
-    // roles).
+    // roles). Nombre de ventes et nombre d'articles restent visibles : ce
+    // sont des compteurs, pas des montants.
     if (orgRole !== "org:admin") {
       const stockAlerts = await db
         .select()
@@ -53,11 +54,26 @@ export async function GET(req: NextRequest) {
             eq(products.isActive, 1),
             sql`${products.currentStock} <= ${products.stockMinThreshold}`
           )
+        )
+        .orderBy(desc(products.createdAt));
+
+      const [salesCountRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(sales)
+        .where(
+          and(eq(sales.organizationId, organizationId), gte(sales.soldAt, from), lte(sales.soldAt, to))
         );
+
+      const [activeProductsRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(products)
+        .where(and(eq(products.organizationId, organizationId), eq(products.isActive, 1)));
 
       return NextResponse.json({
         restricted: true,
         period: { key: periodKey, from, to },
+        salesCount: salesCountRow?.count ?? 0,
+        activeProductsCount: activeProductsRow?.count ?? 0,
         stock: { alerts: stripPurchasePrice(stockAlerts), alertsCount: stockAlerts.length },
       });
     }
@@ -179,7 +195,8 @@ export async function GET(req: NextRequest) {
           eq(products.isActive, 1),
           sql`${products.currentStock} <= ${products.stockMinThreshold}`
         )
-      );
+      )
+      .orderBy(desc(products.createdAt));
 
     const [stockValueRow] = await db
       .select({

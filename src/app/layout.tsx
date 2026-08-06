@@ -8,12 +8,10 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 // https://fonts.google.com/specimen/Rajdhani — police d'identite Serveo.
-// Rajdhani n'est pas une police variable sur Google Fonts : les graisses
-// doivent etre listees explicitement (docs Next.js sur next/font/google).
 const rajdhani = Rajdhani({
   variable: "--font-rajdhani",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -30,8 +28,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fefcfa" },
-    { media: "(prefers-color-scheme: dark)", color: "#1c1815" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a2420" },
   ],
 };
 
@@ -46,16 +44,16 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${rajdhani.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <AppClerkProvider>
+      <body className="min-h-full flex flex-col font-sans">
+        <AppClerkProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
             <TooltipProvider>
               <ServiceWorkerRegister />
               {children}
               <Toaster />
             </TooltipProvider>
-          </AppClerkProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AppClerkProvider>
       </body>
     </html>
   );

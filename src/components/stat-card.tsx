@@ -1,5 +1,4 @@
 import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Tone = "default" | "good" | "bad" | "warn";
@@ -11,15 +10,6 @@ const TONE_TEXT: Record<Tone, string> = {
   warn: "text-warning",
 };
 
-const TONE_BORDER: Record<Tone, string> = {
-  default: "border-l-border",
-  good: "border-l-success",
-  bad: "border-l-destructive",
-  warn: "border-l-warning",
-};
-
-// delta : variation signee vs periode precedente. upIsGood inverse le
-// code couleur pour les metriques ou une hausse est mauvaise (charges).
 function Delta({ deltaPct, upIsGood = true }: { deltaPct: number | null; upIsGood?: boolean }) {
   if (deltaPct === null) return null;
   const isUp = deltaPct >= 0;
@@ -41,6 +31,9 @@ export function StatCard({
   deltaPct,
   deltaLabel = "vs periode precedente",
   upIsGood = true,
+  className,
+  style,
+  size = "default",
 }: {
   label: string;
   value: string;
@@ -49,30 +42,63 @@ export function StatCard({
   deltaPct?: number | null;
   deltaLabel?: string;
   upIsGood?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  size?: "default" | "hero";
 }) {
-  return (
-    <Card className={cn("border-l-2", TONE_BORDER[tone])}>
-      <CardContent className="flex items-start justify-between gap-2 pt-2">
-        <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+  if (size === "hero") {
+    return (
+      <div
+        className={cn(
+          "flex flex-col justify-between border border-border bg-card p-6 md:p-8",
+          className
+        )}
+        style={style}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             {label}
-          </div>
-          <div className={cn("font-figures mt-1 truncate text-2xl font-semibold", TONE_TEXT[tone])}>
+          </p>
+          {Icon && <Icon className="size-5 text-primary" strokeWidth={1.75} />}
+        </div>
+        <div className="mt-6">
+          <p className={cn("font-figures text-4xl font-bold tracking-tight md:text-5xl", TONE_TEXT[tone])}>
             {value}
-          </div>
+          </p>
           {deltaPct !== undefined && deltaPct !== null && (
-            <div className="mt-1 flex items-center gap-1">
+            <div className="mt-3 flex items-center gap-2">
               <Delta deltaPct={deltaPct} upIsGood={upIsGood} />
               <span className="text-xs text-muted-foreground">{deltaLabel}</span>
             </div>
           )}
         </div>
-        {Icon && (
-          <span className="flex size-8 shrink-0 items-center justify-center bg-accent text-accent-foreground">
-            <Icon className="size-4" />
-          </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-3 border border-border bg-card p-4 transition-colors hover:border-primary/30",
+        className
+      )}
+      style={style}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+          {label}
+        </p>
+        {Icon && <Icon className="size-4 text-muted-foreground" strokeWidth={1.75} />}
+      </div>
+      <div>
+        <p className={cn("font-figures text-2xl font-bold tracking-tight", TONE_TEXT[tone])}>{value}</p>
+        {deltaPct !== undefined && deltaPct !== null && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <Delta deltaPct={deltaPct} upIsGood={upIsGood} />
+            <span className="text-[11px] text-muted-foreground">{deltaLabel}</span>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

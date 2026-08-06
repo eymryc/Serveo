@@ -40,12 +40,12 @@ export function PaymentMethodsManager({
   }
 
   return (
-    <div className="space-y-3">
+    <ul className="divide-y divide-border border border-border">
       {ALL_PAYMENT_METHODS.map((method) => {
         const active = organization.activePaymentMethods.includes(method);
         return (
-          <div key={method} className="flex items-center justify-between">
-            <Label htmlFor={`pm-${method}`} className="font-normal">
+          <li key={method} className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <Label htmlFor={`pm-${method}`} className="font-medium">
               {PAYMENT_METHOD_LABELS[method]}
             </Label>
             <Switch
@@ -54,9 +54,9 @@ export function PaymentMethodsManager({
               disabled={pending === method}
               onCheckedChange={(checked) => toggle(method, checked)}
             />
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

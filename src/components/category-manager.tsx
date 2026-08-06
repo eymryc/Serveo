@@ -7,7 +7,6 @@ import { apiFetch } from "@/lib/api-client";
 import type { Category } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 
 export function CategoryManager({ apiPath, placeholder }: { apiPath: string; placeholder: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -46,24 +45,26 @@ export function CategoryManager({ apiPath, placeholder }: { apiPath: string; pla
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
+      <ul className="divide-y divide-border border border-border">
         {categories.map((c) => (
-          <Badge key={c.id} variant="outline" className="gap-1 py-1 pr-1">
-            {c.name}
+          <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+            <span className="font-medium">{c.name}</span>
             <button
               type="button"
               onClick={() => handleRemove(c.id)}
-              className="ml-0.5 rounded-none p-0.5 hover:bg-destructive/10 hover:text-destructive"
+              className="flex size-7 items-center justify-center text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               aria-label={`Supprimer ${c.name}`}
             >
-              <X className="size-3" />
+              <X className="size-3.5" />
             </button>
-          </Badge>
+          </li>
         ))}
         {categories.length === 0 && (
-          <p className="text-sm text-muted-foreground">Aucune categorie pour l&apos;instant.</p>
+          <li className="px-3 py-6 text-center text-sm text-muted-foreground">
+            Aucune categorie pour l&apos;instant.
+          </li>
         )}
-      </div>
+      </ul>
       <form onSubmit={handleAdd} className="flex gap-2">
         <Input
           value={name}

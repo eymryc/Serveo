@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import type { Organization } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CategoryManager } from "@/components/category-manager";
 import { PaymentMethodsManager } from "@/components/payment-methods-manager";
+import { PageHeader } from "@/components/page-header";
 
 type Subscription = { status: string; currentPeriodEnd: string | null } | null;
 
-const SUBSCRIPTION_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  active: { label: "Actif", variant: "default" },
-  trialing: { label: "Essai", variant: "outline" },
-  past_due: { label: "Paiement en retard", variant: "destructive" },
-  canceled: { label: "Annule", variant: "secondary" },
+const SUBSCRIPTION_LABELS: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "muted" }> = {
+  active: { label: "Actif", tone: "ok" },
+  trialing: { label: "Essai", tone: "warn" },
+  past_due: { label: "Paiement en retard", tone: "bad" },
+  canceled: { label: "Annule", tone: "muted" },
 };
 
 export default function ParametresPage() {
@@ -79,9 +79,10 @@ export default function ParametresPage() {
 
   if (!org) {
     return (
-      <div className="max-w-2xl space-y-4">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-48" />
+      <div className="max-w-3xl space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
@@ -89,114 +90,205 @@ export default function ParametresPage() {
   const subInfo = subscription ? SUBSCRIPTION_LABELS[subscription.status] : null;
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Parametres du bar</h1>
+    <div className="max-w-3xl space-y-6">
+      <PageHeader
+        title="Parametres"
+        description="Identite · categories · paiements · abonnement"
+      />
 
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="paiements">Paiements</TabsTrigger>
-          <TabsTrigger value="abonnement">Abonnement</TabsTrigger>
+      <Tabs defaultValue="general" className="gap-0">
+        <TabsList
+          variant="line"
+          className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0"
+        >
+          {(
+            [
+              ["general", "General"],
+              ["categories", "Categories"],
+              ["paiements", "Paiements"],
+              ["abonnement", "Abonnement"],
+            ] as const
+          ).map(([value, label]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="rounded-none px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase"
+            >
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Informations generales</CardTitle>
-            </CardHeader>
-            <form onSubmit={handleSave}>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Nom du bar</Label>
-                  <Input value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Ville</Label>
-                  <Input value={org.city ?? ""} onChange={(e) => setOrg({ ...org, city: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Objectif CA mensuel (FCFA)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={org.monthlyRevenueTarget ?? ""}
-                    onChange={(e) => setOrg({ ...org, monthlyRevenueTarget: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Seuil d&apos;alerte stock par defaut (unites)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={org.defaultStockAlertThreshold}
-                    onChange={(e) => setOrg({ ...org, defaultStockAlertThreshold: Number(e.target.value) })}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" disabled={saving}>
-                  Enregistrer
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="categories" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Categories de produits</CardTitle>
-              <CardDescription>Bieres, Vins, Liqueurs... — utilisees dans Stock et Ventes.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CategoryManager apiPath="/api/v1/categories" placeholder="Ex: Whisky" />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Categories de charges</CardTitle>
-              <CardDescription>Loyer, Salaires, Electricite... — utilisees dans Charges.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CategoryManager apiPath="/api/v1/expense-categories" placeholder="Ex: Assurance" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="paiements">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Moyens de paiement actifs</CardTitle>
-              <CardDescription>
-                Seuls les moyens actifs apparaissent dans les formulaires Ventes et Charges.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PaymentMethodsManager organization={org} onUpdated={setOrg} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="abonnement">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm">Abonnement</CardTitle>
-                <CardDescription>
-                  Paiement securise via Paystack (carte, mobile money selon disponibilite).
-                </CardDescription>
+        <TabsContent value="general" className="mt-0 outline-none">
+          <form onSubmit={handleSave} className="border border-t-0 border-border bg-card">
+            <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold tracking-tight">{org.name || "Votre bar"}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {org.city ? `${org.city} · ` : ""}Etablissement actif
+                </p>
               </div>
-              {subInfo && <Badge variant={subInfo.variant}>{subInfo.label}</Badge>}
-            </CardHeader>
-            <CardFooter>
-              <Button onClick={handleSubscribe} disabled={checkingOut}>
-                {subscription?.status === "active" ? "Gerer l'abonnement" : "S'abonner"}
+              <Button type="submit" disabled={saving} className="shrink-0">
+                {saving ? "Enregistrement…" : "Enregistrer"}
               </Button>
-            </CardFooter>
-          </Card>
+            </div>
+
+            <div className="space-y-6 p-4 sm:p-5">
+              <section className="space-y-3">
+                <SectionLabel>Identite</SectionLabel>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Nom du bar">
+                    <Input
+                      value={org.name}
+                      onChange={(e) => setOrg({ ...org, name: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Ville">
+                    <Input
+                      value={org.city ?? ""}
+                      onChange={(e) => setOrg({ ...org, city: e.target.value })}
+                    />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="space-y-3 border-t border-border pt-5">
+                <SectionLabel>Objectifs & alertes</SectionLabel>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Objectif CA mensuel (FCFA)">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="font-figures"
+                      value={org.monthlyRevenueTarget ?? ""}
+                      onChange={(e) => setOrg({ ...org, monthlyRevenueTarget: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Seuil d'alerte stock (unites)">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="font-figures"
+                      value={org.defaultStockAlertThreshold}
+                      onChange={(e) =>
+                        setOrg({ ...org, defaultStockAlertThreshold: Number(e.target.value) })
+                      }
+                    />
+                  </Field>
+                </div>
+              </section>
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="categories" className="mt-0 space-y-0 outline-none">
+          <div className="border border-t-0 border-border bg-card">
+            <SectionBlock
+              title="Categories de produits"
+              description="Bieres, Vins, Liqueurs… — utilisees dans Stock et Ventes."
+            >
+              <CategoryManager apiPath="/api/v1/categories" placeholder="Ex: Whisky" />
+            </SectionBlock>
+            <SectionBlock
+              title="Categories de charges"
+              description="Loyer, Salaires, Electricite… — utilisees dans Charges."
+              bordered
+            >
+              <CategoryManager apiPath="/api/v1/expense-categories" placeholder="Ex: Assurance" />
+            </SectionBlock>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="paiements" className="mt-0 outline-none">
+          <div className="border border-t-0 border-border bg-card">
+            <SectionBlock
+              title="Moyens de paiement actifs"
+              description="Seuls les moyens actifs apparaissent dans Ventes et Charges."
+            >
+              <PaymentMethodsManager organization={org} onUpdated={setOrg} />
+            </SectionBlock>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="abonnement" className="mt-0 outline-none">
+          <div className="border border-t-0 border-border bg-card">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <p className="text-base font-bold tracking-tight">Abonnement</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Paiement securise via Paystack (carte, mobile money selon disponibilite).
+                </p>
+              </div>
+              {subInfo && (
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    subInfo.tone === "ok" && "text-success",
+                    subInfo.tone === "warn" && "text-warning",
+                    subInfo.tone === "bad" && "text-destructive",
+                    subInfo.tone === "muted" && "text-muted-foreground"
+                  )}
+                >
+                  {subInfo.label}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+              <p className="font-figures text-xs text-muted-foreground">
+                {subscription?.currentPeriodEnd
+                  ? `Periode jusqu'au ${new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-FR")}`
+                  : "Aucun abonnement actif"}
+              </p>
+              <Button onClick={handleSubscribe} disabled={checkingOut}>
+                {checkingOut
+                  ? "Redirection…"
+                  : subscription?.status === "active"
+                    ? "Gerer l'abonnement"
+                    : "S'abonner"}
+              </Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+      {children}
+    </p>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function SectionBlock({
+  title,
+  description,
+  children,
+  bordered = false,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  bordered?: boolean;
+}) {
+  return (
+    <section className={cn("space-y-4 p-4 sm:p-5", bordered && "border-t border-border")}>
+      <div>
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      {children}
+    </section>
   );
 }

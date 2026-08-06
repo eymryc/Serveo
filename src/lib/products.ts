@@ -1,5 +1,6 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { products, stockMovements } from "@/db/schema";
 import { HttpError } from "@/lib/http-errors";
@@ -34,7 +35,7 @@ export async function createProduct(input: CreateProductInput) {
         name: input.name,
         unitPrice: input.unitPrice.toString(),
         purchasePrice: input.purchasePrice.toString(),
-        unitLabel: input.unitLabel ?? "unite",
+        unitLabel: input.unitLabel ?? "bouteille",
         packageLabel: input.packageLabel ?? null,
         unitsPerPackage: input.unitsPerPackage ?? null,
         currentStock: input.initialStock,
@@ -97,7 +98,8 @@ export async function listProducts(organizationId: string, includeInactive = fal
       includeInactive
         ? eq(products.organizationId, organizationId)
         : and(eq(products.organizationId, organizationId), eq(products.isActive, 1))
-    );
+    )
+    .orderBy(desc(products.createdAt));
 }
 
 // Le prix d'achat revele la marge par article : masque pour tout role qui
@@ -117,43 +119,130 @@ export type CreateStockMovementInput = {
   type: "entry" | "adjustment";
   quantityDelta: number;
   note?: string;
+  occurredAt?: Date;
+  batchId?: string;
 };
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+type ApplyMovementInput = {
+  organizationId: string;
+  userId: string;
+  productId: string;
+  type: "entry" | "adjustment";
+  quantityDelta: number;
+  note?: string;
+  occurredAt?: Date;
+  batchId?: string;
+  reversalOfBatchId?: string;
+};
+
+// Applique un mouvement (verif stock, insert stock_movements, update
+// currentStock) dans une transaction deja ouverte — reutilise par
+// createStockMovement (sa propre transaction, un seul mouvement) et
+// reverseStockMovementBatch (une transaction partagee par tout un lot,
+// pour que l'annulation soit tout-ou-rien).
+async function applyStockMovement(tx: Tx, input: ApplyMovementInput) {
+  const [product] = await tx
+    .select()
+    .from(products)
+    .where(and(eq(products.id, input.productId), eq(products.organizationId, input.organizationId)));
+
+  if (!product) {
+    throw new HttpError(404, "Article introuvable");
+  }
+
+  const newStock = product.currentStock + input.quantityDelta;
+  if (newStock < 0) {
+    throw new HttpError(409, `Stock insuffisant pour ${product.name}`);
+  }
+
+  const [movement] = await tx
+    .insert(stockMovements)
+    .values({
+      organizationId: input.organizationId,
+      productId: input.productId,
+      type: input.type,
+      quantityDelta: input.quantityDelta,
+      note: input.note,
+      batchId: input.batchId,
+      reversalOfBatchId: input.reversalOfBatchId,
+      createdByUserId: input.userId,
+      ...(input.occurredAt ? { createdAt: input.occurredAt } : {}),
+    })
+    .returning();
+
+  await tx
+    .update(products)
+    .set({ currentStock: sql`${products.currentStock} + ${input.quantityDelta}` })
+    .where(eq(products.id, input.productId));
+
+  return movement;
+}
 
 export async function createStockMovement(input: CreateStockMovementInput) {
   const db = getDb();
+  return db.transaction((tx) => applyStockMovement(tx, input));
+}
+
+export type ReverseStockMovementBatchInput = {
+  organizationId: string;
+  userId: string;
+  batchId: string;
+};
+
+// Annule un lot de mouvements via une contre-ecriture tracee (jamais
+// d'edition/suppression des lignes d'origine — cf. commentaire sur
+// stockMovements : source de verite immuable). Tout-ou-rien : si annuler
+// une seule ligne ferait passer un stock sous zero, rien n'est annule.
+export async function reverseStockMovementBatch(input: ReverseStockMovementBatchInput) {
+  const db = getDb();
+
+  const original = await db
+    .select()
+    .from(stockMovements)
+    .where(
+      and(eq(stockMovements.organizationId, input.organizationId), eq(stockMovements.batchId, input.batchId))
+    );
+
+  if (original.length === 0) {
+    throw new HttpError(404, "Lot introuvable");
+  }
+
+  const [alreadyReversed] = await db
+    .select({ id: stockMovements.id })
+    .from(stockMovements)
+    .where(
+      and(
+        eq(stockMovements.organizationId, input.organizationId),
+        eq(stockMovements.reversalOfBatchId, input.batchId)
+      )
+    );
+
+  if (alreadyReversed) {
+    throw new HttpError(409, "Ce lot a deja ete annule");
+  }
+
+  const reversalBatchId = randomUUID();
+  const originalNote = original[0].note;
+  const note = originalNote ? `Annulation — ${originalNote}` : "Annulation";
 
   return db.transaction(async (tx) => {
-    const [product] = await tx
-      .select()
-      .from(products)
-      .where(and(eq(products.id, input.productId), eq(products.organizationId, input.organizationId)));
-
-    if (!product) {
-      throw new HttpError(404, "Article introuvable");
+    const reversed = [];
+    for (const m of original) {
+      reversed.push(
+        await applyStockMovement(tx, {
+          organizationId: input.organizationId,
+          userId: input.userId,
+          productId: m.productId,
+          type: "adjustment",
+          quantityDelta: -m.quantityDelta,
+          note,
+          batchId: reversalBatchId,
+          reversalOfBatchId: input.batchId,
+        })
+      );
     }
-
-    const newStock = product.currentStock + input.quantityDelta;
-    if (newStock < 0) {
-      throw new HttpError(409, "Stock insuffisant pour cette sortie");
-    }
-
-    const [movement] = await tx
-      .insert(stockMovements)
-      .values({
-        organizationId: input.organizationId,
-        productId: input.productId,
-        type: input.type,
-        quantityDelta: input.quantityDelta,
-        note: input.note,
-        createdByUserId: input.userId,
-      })
-      .returning();
-
-    await tx
-      .update(products)
-      .set({ currentStock: sql`${products.currentStock} + ${input.quantityDelta}` })
-      .where(eq(products.id, input.productId));
-
-    return movement;
+    return reversed;
   });
 }

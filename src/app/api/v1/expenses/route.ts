@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { expenses } from "@/db/schema";
 import { requireAdmin, requireTenant, tenantErrorResponse } from "@/lib/tenant";
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
           lte(expenses.expenseDate, to)
         )
       )
-      .orderBy(expenses.expenseDate);
+      .orderBy(desc(expenses.expenseDate), desc(expenses.createdAt));
 
     return NextResponse.json({ expenses: rows });
   } catch (error) {

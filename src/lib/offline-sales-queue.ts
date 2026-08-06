@@ -17,6 +17,7 @@ export type QueuedSale = {
   quantity: number;
   discount: number;
   paymentMethod: string;
+  batchId?: string;
   queuedAt: string;
   lastError?: string;
 };
@@ -80,6 +81,7 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
           quantity: sale.quantity,
           discount: sale.discount,
           paymentMethod: sale.paymentMethod,
+          ...(sale.batchId ? { batchId: sale.batchId } : {}),
         }),
       });
 

@@ -25,6 +25,31 @@ export type Sale = {
   grossAmount: string;
   netAmount: string;
   paymentMethod: string;
+  batchId: string | null;
+};
+
+export type StockMovement = {
+  id: string;
+  productId: string;
+  type: "initial" | "entry" | "sale_exit" | "adjustment";
+  quantityDelta: number;
+  note: string | null;
+  batchId: string | null;
+  reversalOfBatchId: string | null;
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type StockMovementWithProduct = {
+  id: string;
+  productId: string;
+  productName: string;
+  type: StockMovement["type"];
+  quantityDelta: number;
+  note: string | null;
+  batchId: string | null;
+  reversalOfBatchId: string | null;
+  createdAt: string;
 };
 
 export type Expense = {
@@ -63,6 +88,8 @@ export type PeriodKey = "today" | "week" | "month" | "year";
 export type RestrictedDashboardData = {
   restricted: true;
   period: { key: PeriodKey; from: string; to: string };
+  salesCount: number;
+  activeProductsCount: number;
   stock: { alerts: Product[]; alertsCount: number };
 };
 
@@ -91,3 +118,19 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 export const ALL_PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS);
+
+export const UNIT_LABEL_OPTIONS = [
+  { value: "bouteille", label: "Bouteille" },
+  { value: "canette", label: "Canette" },
+  { value: "sachet", label: "Sachet" },
+  { value: "verre", label: "Verre" },
+  { value: "bidon", label: "Bidon" },
+] as const;
+
+export const PACKAGE_LABEL_OPTIONS = [
+  { value: "casier", label: "Casier" },
+  { value: "carton", label: "Carton" },
+  { value: "pack", label: "Pack" },
+  { value: "caisse", label: "Caisse" },
+  { value: "fut", label: "Fut" },
+] as const;

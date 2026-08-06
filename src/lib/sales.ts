@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { products, sales, stockMovements } from "@/db/schema";
@@ -13,6 +13,7 @@ export type CreateSaleInput = {
   discount: number;
   paymentMethod: string;
   soldAt?: Date;
+  batchId?: string;
 };
 
 // Une vente cree TOUJOURS son mouvement de stock (sale_exit) dans la meme
@@ -52,6 +53,7 @@ export async function createSale(input: CreateSaleInput) {
         netAmount: netAmount.toString(),
         paymentMethod: input.paymentMethod as (typeof sales.$inferInsert)["paymentMethod"],
         createdByUserId: input.userId,
+        batchId: input.batchId,
       })
       .returning();
 
@@ -61,6 +63,7 @@ export async function createSale(input: CreateSaleInput) {
       type: "sale_exit",
       quantityDelta: -input.quantity,
       referenceSaleId: sale.id,
+      batchId: input.batchId,
       createdByUserId: input.userId,
     });
 
@@ -79,5 +82,5 @@ export async function listSales(organizationId: string, from: Date, to: Date) {
     .select()
     .from(sales)
     .where(and(eq(sales.organizationId, organizationId), gte(sales.soldAt, from), lte(sales.soldAt, to)))
-    .orderBy(sales.soldAt);
+    .orderBy(desc(sales.soldAt), desc(sales.createdAt));
 }

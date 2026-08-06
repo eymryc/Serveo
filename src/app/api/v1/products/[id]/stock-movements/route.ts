@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { stockMovements } from "@/db/schema";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
@@ -19,7 +19,7 @@ export async function GET(
       .select()
       .from(stockMovements)
       .where(and(eq(stockMovements.organizationId, organizationId), eq(stockMovements.productId, id)))
-      .orderBy(stockMovements.createdAt);
+      .orderBy(desc(stockMovements.createdAt));
 
     return NextResponse.json({ movements: rows });
   } catch (error) {
