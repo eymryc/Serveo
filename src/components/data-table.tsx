@@ -85,7 +85,7 @@ export function TablePagination({
   onPageSizeChange: (size: (typeof PAGE_SIZES)[number]) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
       <p className="font-figures text-xs text-muted-foreground">
         {total === 0 ? "0 resultat" : `${from}–${to} sur ${total}`}
       </p>
@@ -165,7 +165,8 @@ export function KpiCell({
       </div>
       <p
         className={cn(
-          "font-figures mt-1 text-2xl font-bold tracking-tight",
+          "font-figures mt-1 text-xl font-bold tracking-tight sm:text-2xl",
+          "truncate tabular-nums",
           tone === "bad" && "text-destructive",
           tone === "good" && "text-success"
         )}

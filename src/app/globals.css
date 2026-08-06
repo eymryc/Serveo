@@ -162,11 +162,30 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans;
+    /* Empêche le scroll horizontal accidentel (tables / chips). */
+    overflow-x: clip;
+    /* Zones sûres iOS / PWA standalone (encoche, home indicator). */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+  }
   body {
-    @apply bg-background text-foreground relative;
+    @apply bg-background text-foreground relative min-h-dvh;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
     background-image: radial-gradient(ellipse 1100px 520px at 50% -8%, var(--vignette), transparent 72%);
     background-repeat: no-repeat;
-    background-attachment: fixed;
+    /* fixed est coûteux / buggé sur Safari mobile — scroll par défaut, fixed desktop. */
+    background-attachment: scroll;
+  }
+  @media (min-width: 768px) {
+    body {
+      background-attachment: fixed;
+    }
   }
   /* Grain subtil — texture papier, pas de glow. */
   body::before {
@@ -177,9 +196,6 @@
     pointer-events: none;
     opacity: 0.028;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-  html {
-    @apply font-sans;
   }
 }
 
@@ -206,6 +222,37 @@
 
   .page-surface {
     @apply border border-border bg-card;
+  }
+
+  .safe-pt {
+    padding-top: var(--safe-top);
+  }
+  .safe-pb {
+    padding-bottom: var(--safe-bottom);
+  }
+  .safe-px {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+  .safe-inset-x {
+    padding-left: max(1rem, var(--safe-left));
+    padding-right: max(1rem, var(--safe-right));
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-bottom);
+  }
+  .pt-safe {
+    padding-top: var(--safe-top);
+  }
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {

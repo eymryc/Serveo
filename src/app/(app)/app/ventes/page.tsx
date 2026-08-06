@@ -378,7 +378,7 @@ export default function VentesPage() {
   }
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-0 z-10 flex bg-background md:inset-y-0 md:top-16 md:left-60">
+    <div className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 z-10 flex bg-background md:inset-y-0 md:top-[calc(4rem+env(safe-area-inset-top,0px))] md:left-60">
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-border bg-card px-4 py-3 md:px-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -446,7 +446,7 @@ export default function VentesPage() {
                 />
               </div>
               {visibleCategories.length > 0 && (
-                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                <div className="flex gap-1.5 overflow-x-auto scroll-touch scrollbar-none pb-0.5 [-ms-overflow-style:none]">
                   <FilterChip
                     active={categoryFilter === ALL_CATEGORIES}
                     onClick={() => setCategoryFilter(ALL_CATEGORIES)}
@@ -466,7 +466,7 @@ export default function VentesPage() {
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-52 md:px-5 lg:pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(14rem+env(safe-area-inset-bottom,0px))] md:px-5 lg:pb-4">
               <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                 {filteredProducts.map((p) => {
                   const qtyInCart = cartQtyByProduct.get(p.id) ?? 0;
@@ -480,7 +480,7 @@ export default function VentesPage() {
                       disabled={outOfStock}
                       onClick={() => addToCart(p)}
                       className={cn(
-                        "relative flex min-h-0 flex-col gap-1 border bg-card px-2 py-2 text-left transition-colors",
+                        "relative flex min-h-[4.5rem] flex-col gap-1 border bg-card px-2 py-2.5 text-left transition-colors active:bg-accent/30",
                         "hover:border-primary/50 hover:bg-accent/20 disabled:pointer-events-none disabled:opacity-45",
                         active
                           ? "border-l-2 border-l-primary border-primary/30 bg-primary/5"
@@ -514,7 +514,7 @@ export default function VentesPage() {
           </TabsContent>
 
           <TabsContent value="historique" className="mt-0 flex min-h-0 flex-1 flex-col outline-none">
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 pb-52 md:px-5 lg:pb-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:px-5">
               <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
                 <KpiCell label="CA du jour" value={formatFcfa(todayStats.revenue)} tone="good" />
                 <KpiCell label="Factures" value={String(todayStats.invoices)} />
@@ -648,7 +648,7 @@ export default function VentesPage() {
       <aside
         className={cn(
           "flex w-full max-w-none shrink-0 flex-col border-l border-border bg-card",
-          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:max-h-[48dvh] max-lg:border-t max-lg:border-l-0 max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:max-h-[min(48dvh,28rem)] max-lg:border-t max-lg:border-l-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
           "lg:w-[22rem] xl:w-[24rem]",
           mainTab === "historique" && "max-lg:hidden"
         )}
@@ -705,10 +705,10 @@ export default function VentesPage() {
                   </div>
 
                   <div className="mt-2.5 flex items-center gap-2">
-                    <div className="flex h-9 items-center border border-border bg-background">
+                    <div className="flex h-11 items-center border border-border bg-background">
                       <button
                         type="button"
-                        className="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         onClick={() => updateQuantity(line.productId, -1)}
                         aria-label="Diminuer"
                       >
@@ -717,7 +717,7 @@ export default function VentesPage() {
                       <span className="font-figures w-8 text-center text-sm font-bold">{line.quantity}</span>
                       <button
                         type="button"
-                        className="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                        className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                         onClick={() => updateQuantity(line.productId, 1)}
                         disabled={line.quantity >= line.product.currentStock}
                         aria-label="Augmenter"
@@ -729,16 +729,17 @@ export default function VentesPage() {
                     <Input
                       type="number"
                       min={0}
+                      inputMode="numeric"
                       value={line.discount || ""}
                       onChange={(e) => updateDiscount(line.productId, Number(e.target.value))}
                       placeholder="Remise"
-                      className="font-figures h-9 min-w-0 flex-1 px-2 text-right text-xs"
+                      className="font-figures h-11 min-w-0 flex-1 px-2 text-right text-xs"
                     />
 
                     <button
                       type="button"
                       onClick={() => removeFromCart(line.productId)}
-                      className="flex size-9 shrink-0 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
+                      className="flex size-11 shrink-0 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
                       aria-label="Retirer"
                     >
                       <Trash2 className="size-3.5" />
@@ -917,7 +918,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 border px-3 py-1.5 text-sm font-medium transition-colors",
+        "shrink-0 min-h-10 border px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"

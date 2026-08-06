@@ -41,6 +41,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           toast: "cn-toast",
         },
       }}
+      offset={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
       {...props}
     />
   )

@@ -312,7 +312,7 @@ function NouveauMouvementForm() {
           </div>
         </div>
 
-        <aside className="border border-border bg-card lg:sticky lg:top-20">
+        <aside className="border border-border bg-card max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:pb-safe lg:sticky lg:top-20">
           <div
             className={cn(
               "border-b border-border px-4 py-3",

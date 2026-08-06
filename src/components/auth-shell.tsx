@@ -13,7 +13,7 @@ export function AuthShell({
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand plane — not a centered SaaS card stack */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-primary px-10 py-10 text-primary-foreground lg:flex">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-primary px-10 py-10 pt-safe pb-safe text-primary-foreground lg:flex">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.08]"
           style={{
@@ -37,7 +37,7 @@ export function AuthShell({
         <p className="relative text-sm text-primary-foreground/60">FCFA · Orange Money · MTN · Wave</p>
       </aside>
 
-      <div className="relative flex flex-col bg-background">
+      <div className="relative flex flex-col bg-background pt-safe pb-safe">
         <div className="flex items-center justify-between px-6 py-5 lg:hidden">
           <Link href="/" className="inline-flex">
             <LogoMark size="md" />
@@ -46,7 +46,7 @@ export function AuthShell({
 
         <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-12">
           <div className="mx-auto w-full max-w-md animate-in fade-in slide-in-from-bottom-3 duration-500">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{title}</h1>
             {description && (
               <p className="mt-2 text-base text-muted-foreground">{description}</p>
             )}

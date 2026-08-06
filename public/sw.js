@@ -5,10 +5,10 @@
 // tomber en plein coup de feu. La creation de vente hors-ligne elle-meme
 // est geree par l'app (file d'attente localStorage), pas ici.
 
-const SHELL_CACHE = "serveo-shell-v1";
-const DATA_CACHE = "serveo-data-v1";
+const SHELL_CACHE = "serveo-shell-v2";
+const DATA_CACHE = "serveo-data-v2";
 
-const SHELL_URLS = ["/app/ventes", "/manifest.webmanifest"];
+const SHELL_URLS = ["/app/ventes", "/manifest.webmanifest", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -65,6 +65,7 @@ function TabsTrigger({
       className={cn(
         // Base
         "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-sm border border-transparent px-3 py-0.5 text-sm font-medium whitespace-nowrap transition-all",
+        "group-data-[variant=line]/tabs-list:flex-none group-data-[variant=line]/tabs-list:shrink-0",
         "text-muted-foreground hover:text-foreground",
         "group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start",
         "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring",

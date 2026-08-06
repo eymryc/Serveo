@@ -24,9 +24,20 @@ export const metadata: Metadata = {
   description: "Ventes, stock et charges pour bars et buvettes, en temps reel.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Serveo",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f2f6f4" },
     { media: "(prefers-color-scheme: dark)", color: "#1a2420" },

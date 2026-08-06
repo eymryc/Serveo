@@ -250,7 +250,7 @@ export default function ArticlesPageClient() {
     UNIT_LABEL_OPTIONS.find((o) => o.value === form.unitLabel)?.label.toLowerCase() ?? form.unitLabel;
 
   return (
-    <div className="container mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Articles"
         description="Le catalogue de vos produits — Stock et Ventes s'y referent directement."
@@ -262,7 +262,7 @@ export default function ArticlesPageClient() {
       />
 
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-px border border-border bg-border">
+        <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-3">
           <KpiCell
             label="Articles"
             value={String(filteredProducts.length)}

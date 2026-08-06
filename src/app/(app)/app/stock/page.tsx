@@ -286,7 +286,7 @@ export default function StockPage() {
   }
 
   return (
-    <div className="container mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Stock"
         description="Alertes automatiques des que le seuil minimum est atteint. Catalogue dans Articles."
@@ -307,7 +307,7 @@ export default function StockPage() {
       />
 
       <Tabs value={tab} onValueChange={setTab} className="gap-4">
-        <TabsList variant="line" className="h-10 w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border p-0">
+        <TabsList variant="line" className="h-10 w-full justify-start gap-0 overflow-x-auto scroll-touch scrollbar-none rounded-none border-b border-border p-0">
           <TabsTrigger value="articles" className="shrink-0">
             Niveaux
           </TabsTrigger>
@@ -322,7 +322,7 @@ export default function StockPage() {
         </TabsList>
 
         <TabsContent value="articles" className="mt-0 space-y-3 outline-none">
-          <div className="grid grid-cols-3 gap-px border border-border bg-border">
+          <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-3">
             <KpiCell
               label="Alertes"
               value={String(alertCount)}

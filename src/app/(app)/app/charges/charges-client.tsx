@@ -189,7 +189,7 @@ export default function ChargesPage() {
   }
 
   return (
-    <div className="container mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Charges"
         description="Suivi des depenses du bar — reserve au gerant."

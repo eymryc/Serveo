@@ -103,7 +103,7 @@ export default function StockMovementDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto w-full max-w-6xl">
+      <div className="w-full">
         <p className="text-sm text-muted-foreground">Chargement…</p>
       </div>
     );
@@ -111,7 +111,7 @@ export default function StockMovementDetailPage() {
 
   if (!group) {
     return (
-      <div className="container mx-auto w-full max-w-6xl space-y-4">
+      <div className="w-full space-y-4">
         <PageHeader title="Mouvement introuvable" description="Ce mouvement n'existe pas ou a ete supprime." />
         <Button asChild variant="outline">
           <Link href="/app/stock?tab=historique">Retour a l&apos;historique</Link>
@@ -142,7 +142,7 @@ export default function StockMovementDetailPage() {
   }
 
   return (
-    <div className="container mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title={isEntry ? "Entree de stock" : group.type === "sale_exit" ? "Sortie vente" : "Sortie de stock"}
         description={dateLabel}

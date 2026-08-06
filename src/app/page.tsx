@@ -28,7 +28,7 @@ export default async function LandingPage() {
         }}
       />
 
-      <header className="relative z-10 flex shrink-0 items-center justify-between px-5 py-4 sm:px-10">
+      <header className="relative z-10 flex shrink-0 items-center justify-between px-5 py-4 pt-safe sm:px-10">
         <Link href="/" className="transition-opacity hover:opacity-80">
           <LogoMark size="md" />
         </Link>
@@ -40,7 +40,7 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <main className="relative z-10 grid min-h-0 flex-1 lg:grid-cols-[1.05fr_0.95fr]">
+      <main className="relative z-10 grid min-h-0 flex-1 pb-safe lg:grid-cols-[1.05fr_0.95fr]">
         {/* Brand column */}
         <section className="flex min-h-0 flex-col justify-center px-5 pb-6 sm:px-10 lg:pb-10 lg:pr-8">
           <div className="max-w-xl">

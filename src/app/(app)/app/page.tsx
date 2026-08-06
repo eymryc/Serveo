@@ -73,7 +73,7 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="container mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <Skeleton className="h-12 w-72" />
       <div className="grid grid-cols-2 gap-px border border-border bg-border md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -102,7 +102,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto w-full max-w-6xl">
+      <div>
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>{error}</AlertTitle>
@@ -114,7 +114,7 @@ export default function DashboardPage() {
 
   if (data.restricted) {
     return (
-      <div className="container mx-auto w-full max-w-6xl space-y-6">
+      <div className="space-y-6">
         <PageHeader
           title="Tableau de bord"
           description="Vue operationnelle — les chiffres financiers sont reserves au gerant."
@@ -158,7 +158,7 @@ export default function DashboardPage() {
   const periodLabel = `${new Date(data.period.from).toLocaleDateString("fr-FR")} — ${new Date(data.period.to).toLocaleDateString("fr-FR")}`;
 
   return (
-    <div className="container mx-auto w-full max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Tableau de bord"
         description={`Periode : ${periodLabel}`}
@@ -272,7 +272,7 @@ export default function DashboardPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="gap-4">
-        <TabsList variant="line" className="h-10 w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border p-0">
+        <TabsList variant="line" className="h-10 w-full justify-start gap-0 overflow-x-auto scroll-touch scrollbar-none rounded-none border-b border-border p-0">
           <TabsTrigger value="apercu" className="shrink-0">
             Apercu
           </TabsTrigger>
