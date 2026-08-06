@@ -91,7 +91,7 @@ export function AppShell({
     <div className="flex min-h-dvh bg-background">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-        <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5 pt-safe">
+        <div className="flex min-h-16 items-center gap-2.5 border-b border-sidebar-border px-5 pt-safe">
           <Link href="/app" className="inline-flex">
             <LogoMark size="md" />
           </Link>

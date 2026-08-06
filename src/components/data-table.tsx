@@ -96,7 +96,7 @@ export function TablePagination({
             value={String(pageSize)}
             onValueChange={(v) => onPageSizeChange(Number(v) as (typeof PAGE_SIZES)[number])}
           >
-            <SelectTrigger className="h-8 w-[4.5rem]">
+            <SelectTrigger className="h-11 w-[4.5rem]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -113,7 +113,7 @@ export function TablePagination({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8"
+            className="size-11"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
           >
@@ -127,7 +127,7 @@ export function TablePagination({
             type="button"
             variant="outline"
             size="icon"
-            className="size-8"
+            className="size-11"
             disabled={page >= pageCount}
             onClick={() => onPageChange(page + 1)}
           >

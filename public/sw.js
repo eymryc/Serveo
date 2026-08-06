@@ -5,8 +5,9 @@
 // tomber en plein coup de feu. La creation de vente hors-ligne elle-meme
 // est geree par l'app (file d'attente localStorage), pas ici.
 
-const SHELL_CACHE = "serveo-shell-v2";
-const DATA_CACHE = "serveo-data-v2";
+const SHELL_CACHE = "serveo-shell-v3";
+const DATA_CACHE = "serveo-data-v3";
+const ASSET_CACHE = "serveo-assets-v3";
 
 const SHELL_URLS = ["/app/ventes", "/manifest.webmanifest", "/icon-192.png"];
 
@@ -18,13 +19,10 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = new Set([SHELL_CACHE, DATA_CACHE, ASSET_CACHE]);
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== SHELL_CACHE && key !== DATA_CACHE)
-          .map((key) => caches.delete(key))
-      )
+      Promise.all(keys.filter((key) => !keep.has(key)).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
@@ -32,9 +30,28 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return; // POST/PATCH restent geres par l'app (file d'attente)
+  if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Assets Next (JS/CSS hashés) : cache-first pour que le shell offline charge.
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.open(ASSET_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response.ok) cache.put(request, response.clone());
+          return response;
+        } catch {
+          return cached || Response.error();
+        }
+      })
+    );
+    return;
+  }
 
   // Navigation (chargement de page) : reseau en priorite, cache en secours.
   if (request.mode === "navigate") {
@@ -50,9 +67,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Liste des articles : on garde la derniere reponse connue pour que la
-  // saisie de vente reste possible hors-ligne (prix/stock potentiellement
-  // legerement perimes, la synchro server-side reste la source de verite).
+  // Liste des articles : derniere reponse connue pour la saisie hors-ligne.
   if (url.pathname === "/api/v1/products") {
     event.respondWith(
       fetch(request)
@@ -63,6 +78,5 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => caches.match(request))
     );
-    return;
   }
 });

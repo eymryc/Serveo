@@ -466,8 +466,15 @@ export default function VentesPage() {
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(14rem+env(safe-area-inset-bottom,0px))] md:px-5 lg:pb-4">
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 md:px-5 lg:pb-4",
+                cartLines.length === 0
+                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
+                  : "pb-[calc(14rem+env(safe-area-inset-bottom,0px))]"
+              )}
+            >
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                 {filteredProducts.map((p) => {
                   const qtyInCart = cartQtyByProduct.get(p.id) ?? 0;
                   const active = qtyInCart > 0;
@@ -480,7 +487,7 @@ export default function VentesPage() {
                       disabled={outOfStock}
                       onClick={() => addToCart(p)}
                       className={cn(
-                        "relative flex min-h-[4.5rem] flex-col gap-1 border bg-card px-2 py-2.5 text-left transition-colors active:bg-accent/30",
+                        "relative flex min-h-16 flex-col gap-1 border bg-card px-2.5 py-2.5 text-left transition-colors active:bg-accent/30",
                         "hover:border-primary/50 hover:bg-accent/20 disabled:pointer-events-none disabled:opacity-45",
                         active
                           ? "border-l-2 border-l-primary border-primary/30 bg-primary/5"
@@ -494,10 +501,10 @@ export default function VentesPage() {
                           {qtyInCart}
                         </span>
                       )}
-                      <p className="line-clamp-2 pr-3 text-[11px] font-semibold leading-tight tracking-tight">
+                      <p className="line-clamp-2 pr-3 text-xs font-semibold leading-tight tracking-tight sm:text-[11px]">
                         {p.name}
                       </p>
-                      <p className="font-figures text-xs font-bold tracking-tight">
+                      <p className="font-figures text-sm font-bold tracking-tight sm:text-xs">
                         {formatFcfa(Number(p.unitPrice))}
                       </p>
                     </button>
@@ -648,14 +655,22 @@ export default function VentesPage() {
       <aside
         className={cn(
           "flex w-full max-w-none shrink-0 flex-col border-l border-border bg-card",
-          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:max-h-[min(48dvh,28rem)] max-lg:border-t max-lg:border-l-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:border-t max-lg:border-l-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+          cartLines.length === 0
+            ? "max-lg:max-h-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+            : "max-lg:max-h-[min(52dvh,30rem)]",
           "lg:w-[22rem] xl:w-[24rem]",
           mainTab === "historique" && "max-lg:hidden"
         )}
       >
-        <div className="mx-auto mt-2 h-1 w-10 bg-border lg:hidden" />
+        <div
+          className={cn(
+            "mx-auto mt-2 h-1 w-10 bg-border lg:hidden",
+            cartLines.length === 0 && "hidden"
+          )}
+        />
 
-        <header className="border-b border-border bg-primary/5 px-4 py-3">
+        <header className={cn("border-b border-border bg-primary/5 px-4 py-3", cartLines.length === 0 && "max-lg:border-b-0")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
@@ -671,7 +686,7 @@ export default function VentesPage() {
               <button
                 type="button"
                 onClick={() => setCart([])}
-                className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+                className="min-h-11 px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
               >
                 Vider
               </button>
@@ -679,7 +694,7 @@ export default function VentesPage() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={cn("min-h-0 flex-1 overflow-y-auto", cartLines.length === 0 && "max-lg:hidden")}>
           {cartLines.length === 0 ? (
             <div className="flex h-full min-h-[6rem] items-center justify-center px-6 text-center">
               <p className="text-sm text-muted-foreground">Le ticket apparait ici.</p>
@@ -751,7 +766,7 @@ export default function VentesPage() {
           )}
         </div>
 
-        <div className="shrink-0 border-t border-border bg-card">
+        <div className={cn("shrink-0 border-t border-border bg-card", cartLines.length === 0 && "max-lg:hidden")}>
           {cartLines.length > 0 && (
             <div className="space-y-2 border-b border-border px-4 py-3">
               <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -766,7 +781,7 @@ export default function VentesPage() {
                       type="button"
                       onClick={() => setPaymentMethod(value)}
                       className={cn(
-                        "h-10 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
+                        "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
                         active
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"

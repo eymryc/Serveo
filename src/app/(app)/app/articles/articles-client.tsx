@@ -469,7 +469,7 @@ export default function ArticlesPageClient() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="max-h-[min(60vh,28rem)] space-y-4 overflow-y-auto pr-1">
+            <div className="max-h-[min(60dvh,28rem)] space-y-4 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Nom de l&apos;article</Label>

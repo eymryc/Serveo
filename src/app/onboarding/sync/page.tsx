@@ -71,7 +71,7 @@ export default function OnboardingSyncPage() {
   }, [isLoaded, listLoaded, userId, orgId, userMemberships.data, setActive, router]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-6">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-6 pt-safe pb-safe">
       <div className="w-full max-w-sm border border-border bg-card p-6 text-center">
         {error ? (
           <>

@@ -232,7 +232,7 @@ export default function ChargesPage() {
                   setPaymentFilter((v) => (v === method ? ALL_PAYMENTS : method))
                 }
                 className={cn(
-                  "inline-flex items-center gap-2 border px-2.5 py-1 text-xs transition-colors",
+                  "inline-flex min-h-11 items-center gap-2 border px-2.5 py-1.5 text-xs transition-colors",
                   paymentFilter === method
                     ? "border-primary bg-primary/5 text-primary"
                     : "border-border bg-card text-muted-foreground hover:text-foreground"

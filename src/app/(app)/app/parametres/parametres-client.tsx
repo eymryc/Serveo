@@ -121,7 +121,7 @@ export default function ParametresPage() {
 
         <TabsContent value="general" className="mt-0 outline-none">
           <form onSubmit={handleSave} className="border border-t-0 border-border bg-card">
-            <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-5">
+            <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-5 md:top-[calc(4rem+env(safe-area-inset-top,0px))]">
               <div className="min-w-0">
                 <p className="truncate text-base font-bold tracking-tight">{org.name || "Votre bar"}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
