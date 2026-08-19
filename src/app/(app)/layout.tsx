@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { getDb } from "@/db";
+import { organizations } from "@/db/schema";
 import { AppShell, type NavItem } from "@/components/app-shell";
 
 const NAV_ITEMS: (NavItem & { adminOnly: boolean })[] = [
@@ -12,15 +15,15 @@ const NAV_ITEMS: (NavItem & { adminOnly: boolean })[] = [
   { href: "/app/parametres", label: "Parametres", icon: "parametres", adminOnly: true },
 ];
 
-// Verification d'auth au niveau du layout (pattern recommande par Clerk :
-// resource-based, pas middleware-based). Toute page sous (app) en herite.
+// Verification d'auth au niveau du layout (pas middleware-based, cf.
+// commentaire historique dans src/proxy.ts). Toute page sous (app) en herite.
 //
 // La navigation est filtree par role ici, mais ce n'est qu'un confort
 // d'affichage — la vraie barriere est cote API (requireAdmin dans chaque
 // route sensible). Un barman qui devine l'URL /app/charges se heurte a un
 // 403 serveur, pas juste a un lien cache.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { userId, orgId, orgRole } = await auth();
+  const { userId, userName, orgId, orgRole } = await auth();
 
   if (!userId) {
     redirect("/sign-in");
@@ -29,11 +32,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/onboarding");
   }
 
+  const db = getDb();
+  const [organization] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, orgId));
+
   const isAdmin = orgRole === "org:admin";
   const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <AppShell navItems={visibleItems} isAdmin={isAdmin}>
+    <AppShell
+      navItems={visibleItems}
+      isAdmin={isAdmin}
+      userName={userName ?? "Compte"}
+      orgName={organization?.name ?? "Mon bar"}
+    >
       {children}
     </AppShell>
   );

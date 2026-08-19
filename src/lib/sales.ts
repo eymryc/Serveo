@@ -19,7 +19,7 @@ export type CreateSaleInput = {
 // Une vente cree TOUJOURS son mouvement de stock (sale_exit) dans la meme
 // transaction — c'est le correctif direct du bug du template Sheets ou
 // Ventes et Stock etaient deux feuilles saisies independamment. Extrait de
-// la route pour etre teste directement, sans passer par HTTP/Clerk.
+// la route pour etre teste directement, sans passer par HTTP.
 export async function createSale(input: CreateSaleInput) {
   const db = getDb();
 

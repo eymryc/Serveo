@@ -81,6 +81,14 @@ export type Organization = {
   activePaymentMethods: string[];
 };
 
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "member";
+  createdAt: string;
+};
+
 export type PeriodKey = "today" | "week" | "month" | "year";
 
 // Vue reduite renvoyee au barman : uniquement le stock, pas les chiffres

@@ -1,6 +1,6 @@
 // Petit client HTTP pour appeler notre propre API v1 depuis le navigateur.
 // Un futur client mobile appellera les memes endpoints, en remplacant juste
-// l'authentification par cookie par un token Bearer Clerk.
+// l'authentification par cookie par un token Bearer.
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,

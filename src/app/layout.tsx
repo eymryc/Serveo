@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Rajdhani, Geist_Mono } from "next/font/google";
-import { ServiceWorkerRegister } from "@/lib/register-service-worker";
 import { ThemeProvider } from "@/components/theme-provider";
-import { AppClerkProvider } from "@/components/app-clerk-provider";
+import { AppSessionProvider } from "@/components/session-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -23,7 +22,7 @@ export const metadata: Metadata = {
   title: "Serveo — Gerer. Servir. Simplifier.",
   description: "Ventes, stock et charges pour bars et buvettes, en temps reel.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  icons: { icon: "/icon-192.png", apple: "/apple-icon.png" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -54,15 +53,14 @@ export default function RootLayout({
       className={`${rajdhani.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <AppClerkProvider>
+        <AppSessionProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
             <TooltipProvider>
-              <ServiceWorkerRegister />
               {children}
               <Toaster />
             </TooltipProvider>
           </ThemeProvider>
-        </AppClerkProvider>
+        </AppSessionProvider>
       </body>
     </html>
   );

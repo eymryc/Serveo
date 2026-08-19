@@ -87,3 +87,26 @@ export const updateOrganizationSchema = z.object({
 export const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
 });
+
+export const registerSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(320),
+  password: z.string().min(8).max(200),
+});
+
+export const createOrganizationSchema = z.object({
+  name: z.string().min(1).max(200),
+});
+
+const teamRoleValues = ["admin", "member"] as const;
+
+export const createTeamMemberSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(320),
+  password: z.string().min(8).max(200),
+  role: z.enum(teamRoleValues).default("member"),
+});
+
+export const updateTeamMemberSchema = z.object({
+  role: z.enum(teamRoleValues),
+});

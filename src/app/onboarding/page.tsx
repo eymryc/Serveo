@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { OnboardingClient } from "@/components/onboarding-client";
 

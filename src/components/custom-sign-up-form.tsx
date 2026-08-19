@@ -4,29 +4,47 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/password-input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function CustomSignInForm() {
+export function CustomSignUpForm() {
   const router = useRouter();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    if (password !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
 
+    setLoading(true);
+    try {
+      await apiFetch("/api/v1/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password }),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur d'inscription");
+      setLoading(false);
+      return;
+    }
+
+    const result = await signIn("credentials", { email, password, redirect: false });
     if (result?.error) {
-      setError("Email ou mot de passe incorrect");
+      setError("Compte cree, mais la connexion automatique a echoue — reessayez de vous connecter.");
       setLoading(false);
       return;
     }
@@ -42,9 +60,19 @@ export function CustomSignInForm() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="name">Nom</Label>
             <Input
-              id="email"
+              id="name"
+              autoComplete="name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="signup-email">Email</Label>
+            <Input
+              id="signup-email"
               type="email"
               autoComplete="email"
               required
@@ -53,17 +81,29 @@ export function CustomSignInForm() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="signup-password">Mot de passe</Label>
             <PasswordInput
-              id="password"
-              autoComplete="current-password"
+              id="signup-password"
+              autoComplete="new-password"
               required
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="signup-confirm-password">Confirmer le mot de passe</Label>
+            <PasswordInput
+              id="signup-confirm-password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
+            {loading ? "Creation..." : "Creer mon compte"}
           </Button>
         </form>
 
@@ -75,9 +115,9 @@ export function CustomSignInForm() {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ?{" "}
-        <Link href="/sign-up" className="font-semibold text-foreground underline underline-offset-4 hover:text-primary">
-          Creer un compte
+        Deja un compte ?{" "}
+        <Link href="/sign-in" className="font-semibold text-foreground underline underline-offset-4 hover:text-primary">
+          Se connecter
         </Link>
       </p>
     </div>

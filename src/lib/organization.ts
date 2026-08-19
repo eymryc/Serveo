@@ -1,47 +1,33 @@
 import "server-only";
 import { eq } from "drizzle-orm";
-import { clerkClient } from "@clerk/nextjs/server";
 import { getDb } from "@/db";
-import { expenseCategories, organizations, productCategories } from "@/db/schema";
+import { expenseCategories, organizations, productCategories, users } from "@/db/schema";
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_PRODUCT_CATEGORIES } from "@/lib/categories";
+import { HttpError } from "@/lib/http-errors";
 
-// Cree la ligne organizations correspondante si elle n'existe pas encore,
-// avec des categories de depart (modifiables ensuite dans Parametres) pour
-// eviter un ecran vide au premier lancement. Idempotent — peut etre
-// appelee a chaque connexion sans risque.
-export async function ensureOrganizationSynced(organizationId: string) {
+// Cree le bar (organisation) du compte courant, avec des categories de
+// depart (modifiables ensuite dans Parametres) pour eviter un ecran vide au
+// premier lancement. Le createur devient gerant (role admin) de ce bar —
+// un compte ne peut creer/rejoindre qu'un seul bar (pas de multi-org).
+export async function createOrganizationForUser(userId: string, name: string) {
   const db = getDb();
 
-  const [existing] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) throw new HttpError(401, "Compte introuvable");
+  if (user.organizationId) throw new HttpError(409, "Ce compte est deja rattache a un bar");
 
-  if (existing) return existing;
+  return db.transaction(async (tx) => {
+    const [org] = await tx.insert(organizations).values({ name }).returning();
 
-  const client = await clerkClient();
-  const clerkOrg = await client.organizations.getOrganization({ organizationId });
+    await tx.insert(productCategories).values(
+      DEFAULT_PRODUCT_CATEGORIES.map((categoryName) => ({ organizationId: org.id, name: categoryName }))
+    );
+    await tx.insert(expenseCategories).values(
+      DEFAULT_EXPENSE_CATEGORIES.map((categoryName) => ({ organizationId: org.id, name: categoryName }))
+    );
 
-  const [org] = await db
-    .insert(organizations)
-    .values({ id: organizationId, name: clerkOrg.name })
-    .onConflictDoNothing()
-    .returning();
+    await tx.update(users).set({ organizationId: org.id, role: "admin" }).where(eq(users.id, userId));
 
-  if (!org) {
-    const [afterConflict] = await db
-      .select()
-      .from(organizations)
-      .where(eq(organizations.id, organizationId));
-    return afterConflict;
-  }
-
-  await db.insert(productCategories).values(
-    DEFAULT_PRODUCT_CATEGORIES.map((name) => ({ organizationId, name }))
-  );
-  await db.insert(expenseCategories).values(
-    DEFAULT_EXPENSE_CATEGORIES.map((name) => ({ organizationId, name }))
-  );
-
-  return org;
+    return org;
+  });
 }

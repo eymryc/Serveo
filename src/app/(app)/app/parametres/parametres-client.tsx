@@ -14,27 +14,13 @@ import { CategoryManager } from "@/components/category-manager";
 import { PaymentMethodsManager } from "@/components/payment-methods-manager";
 import { PageHeader } from "@/components/page-header";
 
-type Subscription = { status: string; currentPeriodEnd: string | null } | null;
-
-const SUBSCRIPTION_LABELS: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "muted" }> = {
-  active: { label: "Actif", tone: "ok" },
-  trialing: { label: "Essai", tone: "warn" },
-  past_due: { label: "Paiement en retard", tone: "bad" },
-  canceled: { label: "Annule", tone: "muted" },
-};
-
 export default function ParametresPage() {
   const [org, setOrg] = useState<Organization | null>(null);
-  const [subscription, setSubscription] = useState<Subscription>(null);
   const [saving, setSaving] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ organization: Organization; subscription: Subscription }>("/api/v1/organization")
-      .then((d) => {
-        setOrg(d.organization);
-        setSubscription(d.subscription);
-      })
+    apiFetch<{ organization: Organization }>("/api/v1/organization")
+      .then((d) => setOrg(d.organization))
       .catch((e) => toast.error(e.message));
   }, []);
 
@@ -63,20 +49,6 @@ export default function ParametresPage() {
     }
   }
 
-  async function handleSubscribe() {
-    setCheckingOut(true);
-    try {
-      const { authorizationUrl } = await apiFetch<{ authorizationUrl: string }>(
-        "/api/v1/billing/checkout",
-        { method: "POST" }
-      );
-      window.location.href = authorizationUrl;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
-      setCheckingOut(false);
-    }
-  }
-
   if (!org) {
     return (
       <div className="max-w-3xl space-y-4">
@@ -87,13 +59,11 @@ export default function ParametresPage() {
     );
   }
 
-  const subInfo = subscription ? SUBSCRIPTION_LABELS[subscription.status] : null;
-
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
         title="Parametres"
-        description="Identite · categories · paiements · abonnement"
+        description="Identite · categories · paiements"
       />
 
       <Tabs defaultValue="general" className="gap-0">
@@ -106,7 +76,6 @@ export default function ParametresPage() {
               ["general", "General"],
               ["categories", "Categories"],
               ["paiements", "Paiements"],
-              ["abonnement", "Abonnement"],
             ] as const
           ).map(([value, label]) => (
             <TabsTrigger
@@ -207,46 +176,6 @@ export default function ParametresPage() {
             >
               <PaymentMethodsManager organization={org} onUpdated={setOrg} />
             </SectionBlock>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="abonnement" className="mt-0 outline-none">
-          <div className="border border-t-0 border-border bg-card">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-base font-bold tracking-tight">Abonnement</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Paiement securise via Paystack (carte, mobile money selon disponibilite).
-                </p>
-              </div>
-              {subInfo && (
-                <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    subInfo.tone === "ok" && "text-success",
-                    subInfo.tone === "warn" && "text-warning",
-                    subInfo.tone === "bad" && "text-destructive",
-                    subInfo.tone === "muted" && "text-muted-foreground"
-                  )}
-                >
-                  {subInfo.label}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
-              <p className="font-figures text-xs text-muted-foreground">
-                {subscription?.currentPeriodEnd
-                  ? `Periode jusqu'au ${new Date(subscription.currentPeriodEnd).toLocaleDateString("fr-FR")}`
-                  : "Aucun abonnement actif"}
-              </p>
-              <Button onClick={handleSubscribe} disabled={checkingOut}>
-                {checkingOut
-                  ? "Redirection…"
-                  : subscription?.status === "active"
-                    ? "Gerer l'abonnement"
-                    : "S'abonner"}
-              </Button>
-            </div>
           </div>
         </TabsContent>
       </Tabs>

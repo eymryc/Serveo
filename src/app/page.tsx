@@ -1,10 +1,30 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import Image from "next/image";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RefreshCcw, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoMark } from "@/components/logo-mark";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+
+const FEATURES = [
+  {
+    icon: Wallet,
+    title: "Mobile Money & FCFA",
+    description: "Especes, Orange Money, MTN MoMo, Wave — au meme comptoir.",
+  },
+  {
+    icon: RefreshCcw,
+    title: "Vente = stock",
+    description: "Chaque vente met a jour le stock, dans le meme geste.",
+  },
+  {
+    icon: Users,
+    title: "Roles separes",
+    description: "Le barman sert, le gerant voit les marges. Pas plus.",
+  },
+];
 
 export default async function LandingPage() {
   const { userId, orgId } = await auth();
@@ -13,7 +33,7 @@ export default async function LandingPage() {
   if (userId && !orgId) redirect("/onboarding");
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-dvh flex-col overflow-x-clip bg-background lg:h-dvh lg:overflow-hidden">
       {/* Atmosphere */}
       <div
         aria-hidden
@@ -28,21 +48,11 @@ export default async function LandingPage() {
         }}
       />
 
-      <header className="relative z-10 flex shrink-0 items-center justify-between px-5 py-4 pt-safe sm:px-10">
-        <Link href="/" className="transition-opacity hover:opacity-80">
-          <LogoMark size="md" />
-        </Link>
-        <div className="flex items-center gap-1 sm:gap-3">
-          <ThemeToggle />
-          <Button variant="ghost" asChild>
-            <Link href="/sign-in">Se connecter</Link>
-          </Button>
-        </div>
-      </header>
+      <SiteHeader />
 
-      <main className="relative z-10 grid min-h-0 flex-1 pb-safe lg:grid-cols-[1.05fr_0.95fr]">
+      <main className="relative z-10 flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr]">
         {/* Brand column */}
-        <section className="flex min-h-0 flex-col justify-center px-5 pb-6 sm:px-10 lg:pb-10 lg:pr-8">
+        <section className="flex min-h-0 flex-col justify-center px-5 pb-10 sm:px-10 lg:pb-10 lg:pr-8">
           <div className="max-w-xl">
             <p className="animate-in fade-in slide-in-from-left-2 text-[11px] font-semibold tracking-[0.22em] text-primary uppercase duration-500 sm:text-xs">
               Gerer · Servir · Simplifier
@@ -55,15 +65,14 @@ export default async function LandingPage() {
               />
             </h1>
 
-            <p className="animate-in fade-in slide-in-from-left-4 mt-5 text-[clamp(1.35rem,3vw,2rem)] font-semibold leading-tight tracking-tight text-foreground duration-700">
+            <p className="animate-in fade-in slide-in-from-left-4 mt-5 text-[clamp(1.35rem,3vw,2rem)] font-semibold leading-tight tracking-tight text-balance text-foreground duration-700">
               Le comptoir,
               <br className="hidden sm:block" />
               <span className="text-primary"> sous controle.</span>
             </p>
 
-            <p className="animate-in fade-in slide-in-from-left-4 mt-4 max-w-md text-sm leading-relaxed text-muted-foreground duration-700 sm:mt-5 sm:text-base">
-              Ventes, stock et charges en temps reel — FCFA et Mobile Money, meme quand le reseau
-              lache.
+            <p className="animate-in fade-in slide-in-from-left-4 mt-4 max-w-md text-sm leading-relaxed text-pretty text-muted-foreground duration-700 sm:mt-5 sm:text-base">
+              Ventes, stock et charges en temps reel — FCFA et Mobile Money, sur un seul comptoir.
             </p>
 
             <div className="animate-in fade-in slide-in-from-left-4 mt-8 flex flex-wrap items-center gap-3 duration-700 sm:mt-10">
@@ -79,22 +88,41 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          <ul className="animate-in fade-in mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase duration-1000 sm:mt-14 sm:gap-x-8 sm:text-[11px]">
-            <li className="border-l-2 border-primary pl-3 text-foreground">Hors-ligne natif</li>
-            <li className="border-l-2 border-primary/40 pl-3">Vente = stock</li>
-            <li className="border-l-2 border-primary/40 pl-3">Roles separes</li>
+          <ul className="animate-in fade-in mt-10 grid grid-cols-1 gap-2.5 duration-1000 sm:mt-14 sm:grid-cols-3 sm:gap-3">
+            {FEATURES.map(({ icon: Icon, title, description }) => (
+              <li
+                key={title}
+                className="card-interactive page-surface flex items-start gap-3 p-3.5 sm:flex-col sm:gap-2.5 sm:p-4"
+              >
+                <Icon className="size-4 shrink-0 text-primary sm:size-4.5" strokeWidth={2} />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold tracking-tight text-foreground">{title}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {description}
+                  </p>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
 
         {/* Full-bleed ticket plane */}
-        <section className="relative hidden min-h-0 lg:block">
-          <div className="absolute inset-0 bg-primary" />
+        <section className="relative overflow-hidden bg-primary px-5 py-14 sm:px-10 lg:min-h-0 lg:p-0">
           <div
             aria-hidden
             className="absolute inset-0 opacity-[0.12]"
             style={{
               backgroundImage:
                 "linear-gradient(135deg, transparent 40%, color-mix(in_oklch, white 18%, transparent) 40%, color-mix(in_oklch, white 18%, transparent) 41%, transparent 41%), linear-gradient(to bottom, color-mix(in_oklch, black 12%, transparent), transparent 35%, color-mix(in_oklch, black 18%, transparent))",
+            }}
+          />
+          {/* Filet de comptoir — lignes horizontales fines, cote tactile bar. */}
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.05]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to bottom, color-mix(in_oklch, white 90%, transparent) 0, color-mix(in_oklch, white 90%, transparent) 1px, transparent 1px, transparent 26px)",
             }}
           />
           <div
@@ -106,13 +134,19 @@ export default async function LandingPage() {
             }}
           />
 
-          <div className="relative flex h-full items-center justify-center px-10 xl:px-14">
+          <div className="relative flex flex-col items-center justify-center lg:h-full lg:px-10 xl:px-14">
             <div className="animate-in fade-in slide-in-from-right-6 w-full max-w-[22rem] duration-1000">
               {/* Receipt — product visual, not a UI card cluster */}
-              <div className="relative bg-[oklch(0.99_0.004_160)] text-foreground shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)]">
+              <div className="group/ticket relative bg-[oklch(0.99_0.004_160)] text-foreground shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1 hover:-rotate-1">
                 <div className="absolute -top-2 left-1/2 h-4 w-16 -translate-x-1/2 bg-primary/30" />
                 <div className="border-b border-dashed border-foreground/15 px-6 pt-7 pb-4 text-center">
-                  <LogoMark size="sm" className="justify-center text-lg" />
+                  <Image
+                    src="/logo-serveo-fond-clair.png"
+                    alt="Serveo"
+                    width={1001}
+                    height={348}
+                    className="mx-auto h-6 w-auto"
+                  />
                   <p className="mt-3 font-figures text-[10px] tracking-[0.2em] text-muted-foreground uppercase">
                     Ticket · Comptoir
                   </p>
@@ -144,9 +178,13 @@ export default async function LandingPage() {
                     </div>
                     <p className="font-figures text-4xl font-bold tracking-tight tabular-nums">4 000</p>
                   </div>
-                  <p className="mt-4 border-t border-dashed border-foreground/10 pt-3 text-center text-[11px] text-muted-foreground">
-                    Stock mis a jour · sync en attente
-                  </p>
+                  <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-dashed border-foreground/10 pt-3">
+                    <span className="relative flex size-1.5" aria-hidden>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                      <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">Stock mis a jour en temps reel</p>
+                  </div>
                 </div>
 
                 {/* Tear edge */}
@@ -164,10 +202,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-border/70 px-5 py-3 text-xs text-muted-foreground sm:px-10">
-        <span className="font-semibold tracking-tight text-foreground">Serveo</span>
-        <span className="truncate tracking-wide">FCFA · Orange Money · MTN MoMo · Wave</span>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
+import { UserMenu } from "@/components/user-menu";
 import {
   LayoutDashboard,
   Menu,
@@ -78,10 +78,14 @@ function NavLinks({
 export function AppShell({
   navItems,
   isAdmin,
+  userName,
+  orgName,
   children,
 }: {
   navItems: NavItem[];
   isAdmin: boolean;
+  userName: string;
+  orgName: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -100,45 +104,14 @@ export function AppShell({
           <NavLinks items={navItems} pathname={pathname} />
         </div>
         <div className="border-t border-sidebar-border p-3 pb-safe">
-          <div className="border border-sidebar-border bg-sidebar-accent/40">
-            <div className="flex items-center justify-between gap-2 border-b border-sidebar-border px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                  Session
-                </p>
-                <p className="truncate text-sm font-semibold text-sidebar-foreground">
-                  {isAdmin ? "Gerant" : "Barman"}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <ThemeToggle />
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "size-8 rounded-none",
-                      userButtonAvatarBox: "rounded-none",
-                      userButtonTrigger: "rounded-none focus:shadow-none",
-                    },
-                  }}
-                />
-              </div>
+          <div className="flex items-center justify-between gap-2 border border-sidebar-border bg-sidebar-accent/40 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
             </div>
-            <div className="px-2 py-2">
-              <OrganizationSwitcher
-                hidePersonal
-                afterSelectOrganizationUrl="/app"
-                afterCreateOrganizationUrl="/onboarding/sync"
-                appearance={{
-                  elements: {
-                    rootBox: "w-full",
-                    organizationSwitcherTrigger:
-                      "w-full justify-between gap-2 rounded-none border border-sidebar-border bg-sidebar px-2.5 py-2 text-sm hover:bg-sidebar-accent",
-                    organizationPreviewAvatarBox: "rounded-none size-6",
-                    organizationPreviewMainIdentifier: "text-sm font-medium",
-                    organizationSwitcherTriggerIcon: "text-muted-foreground",
-                  },
-                }}
-              />
+            <div className="flex shrink-0 items-center gap-1">
+              <ThemeToggle />
+              <UserMenu userName={userName} />
             </div>
           </div>
         </div>
@@ -167,40 +140,12 @@ export function AppShell({
                   />
                 </div>
                 <div className="border-t border-sidebar-border p-3">
-                  <div className="border border-sidebar-border bg-sidebar-accent/40">
-                    <div className="flex items-center justify-between gap-2 border-b border-sidebar-border px-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                          Session
-                        </p>
-                        <p className="truncate text-sm font-semibold text-sidebar-foreground">
-                          {isAdmin ? "Gerant" : "Barman"}
-                        </p>
-                      </div>
-                      <UserButton
-                        appearance={{
-                          elements: {
-                            avatarBox: "size-8 rounded-none",
-                            userButtonAvatarBox: "rounded-none",
-                          },
-                        }}
-                      />
+                  <div className="flex items-center justify-between gap-2 border border-sidebar-border bg-sidebar-accent/40 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
                     </div>
-                    <div className="px-2 py-2">
-                      <OrganizationSwitcher
-                        hidePersonal
-                        afterSelectOrganizationUrl="/app"
-                        afterCreateOrganizationUrl="/onboarding/sync"
-                        appearance={{
-                          elements: {
-                            rootBox: "w-full",
-                            organizationSwitcherTrigger:
-                              "w-full justify-between gap-2 rounded-none border border-sidebar-border bg-sidebar px-2.5 py-2 text-sm",
-                            organizationPreviewAvatarBox: "rounded-none size-6",
-                          },
-                        }}
-                      />
-                    </div>
+                    <UserMenu userName={userName} />
                   </div>
                 </div>
               </SheetContent>
@@ -217,14 +162,7 @@ export function AppShell({
               <ThemeToggle />
             </div>
             <div className="md:hidden">
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "size-8 rounded-none",
-                    userButtonAvatarBox: "rounded-none",
-                  },
-                }}
-              />
+              <UserMenu userName={userName} />
             </div>
           </div>
         </header>

@@ -1,67 +1,63 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { CreateOrganization, useAuth, useOrganizationList } from "@clerk/nextjs";
+import { apiFetch } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-/**
- * Apres CreateOrganization, Clerk navigue vers /onboarding/sync avant que
- * le JWT session ait forcement l'org active → auth().orgId est null cote
- * serveur → redirect boucle vers /onboarding.
- *
- * Ici on:
- * 1. Reactive une membership existante s'il n'y a pas d'org active
- * 2. Affiche CreateOrganization seulement si l'utilisateur n'a aucun bar
- */
 export function OnboardingClient() {
   const router = useRouter();
-  const { isLoaded, orgId } = useAuth();
-  const { isLoaded: listLoaded, userMemberships, setActive } = useOrganizationList({
-    userMemberships: { infinite: true },
-  });
-  const [status, setStatus] = useState<"loading" | "create" | "activating">("loading");
-  const activatingRef = useRef(false);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isLoaded || !listLoaded || !setActive) return;
-
-    if (orgId) {
-      router.replace("/onboarding/sync");
-      return;
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await apiFetch("/api/v1/organization", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      router.push("/app");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur de creation du bar");
+      setLoading(false);
     }
-
-    const memberships = userMemberships.data ?? [];
-    if (memberships.length > 0) {
-      if (activatingRef.current) return;
-      activatingRef.current = true;
-      setStatus("activating");
-      const organizationId = memberships[0].organization.id;
-      void setActive({ organization: organizationId })
-        .then(() => {
-          router.replace("/onboarding/sync");
-        })
-        .catch(() => {
-          activatingRef.current = false;
-          setStatus("create");
-        });
-      return;
-    }
-
-    setStatus("create");
-  }, [isLoaded, listLoaded, orgId, userMemberships.data, setActive, router]);
-
-  if (status === "loading" || status === "activating") {
-    return (
-      <div className="border border-border bg-card p-6 text-center">
-        <p className="text-sm font-medium text-foreground">
-          {status === "activating" ? "Activation de votre bar…" : "Chargement…"}
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">Redirection en cours</p>
-      </div>
-    );
   }
 
   return (
-    <CreateOrganization afterCreateOrganizationUrl="/onboarding/sync" skipInvitationScreen />
+    <form
+      onSubmit={handleSubmit}
+      className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm"
+    >
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
+
+      <div className="space-y-1.5">
+        <Label htmlFor="bar-name">Nom du bar</Label>
+        <Input
+          id="bar-name"
+          required
+          placeholder="Le Comptoir"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? "Creation..." : "Creer mon bar"}
+      </Button>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </form>
   );
 }

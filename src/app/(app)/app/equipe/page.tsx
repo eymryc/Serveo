@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { EquipeClient } from "@/components/equipe-client";
 
-// Gestion d'equipe : inviter des barmen, changer les roles, retirer un membre.
-// UI custom (hooks Clerk) pour rester dans le langage dense de l'app —
-// plus de OrganizationProfile imbriqué (Général / Membres Clerk).
+// Gestion d'equipe : creer des comptes barmen, changer les roles, retirer un membre.
 export default async function EquipePage() {
   const { orgRole } = await auth();
 

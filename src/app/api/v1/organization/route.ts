@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { organizations, subscriptions } from "@/db/schema";
-import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
-import { ensureOrganizationSynced } from "@/lib/organization";
-import { updateOrganizationSchema } from "@/lib/validation";
+import { organizations } from "@/db/schema";
+import { requireTenant, requireUser, tenantErrorResponse } from "@/lib/tenant";
+import { createOrganizationForUser } from "@/lib/organization";
+import { createOrganizationSchema, updateOrganizationSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
@@ -17,24 +17,20 @@ export async function GET() {
       return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
     }
 
-    const [subscription] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId));
-
-    return NextResponse.json({ organization: org, subscription: subscription ?? null });
+    return NextResponse.json({ organization: org });
   } catch (error) {
     return tenantErrorResponse(error);
   }
 }
 
-// Appelee une seule fois par le flux d'onboarding, juste apres la creation
-// de l'organisation Clerk (le "bar"), pour creer la ligne correspondante
-// cote base de donnees. Idempotent (ON CONFLICT DO NOTHING).
-export async function POST() {
+// Appelee par le flux d'onboarding pour creer le bar du compte courant
+// (un compte n'a pas encore d'organisation active a ce stade, donc on
+// n'utilise que requireUser() ici, pas requireTenant()).
+export async function POST(req: NextRequest) {
   try {
-    const { organizationId } = await requireTenant();
-    const organization = await ensureOrganizationSynced(organizationId);
+    const { userId } = await requireUser();
+    const body = createOrganizationSchema.parse(await req.json());
+    const organization = await createOrganizationForUser(userId, body.name);
     return NextResponse.json({ organization }, { status: 201 });
   } catch (error) {
     return tenantErrorResponse(error);

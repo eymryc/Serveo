@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Minus, Plus, Receipt, RefreshCw, Search, ShoppingCart, Trash2, WifiOff } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Minus, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, type Category, type Organization, type Product, type Sale } from "@/lib/types";
-import { enqueueSale, getQueue, syncQueue, type QueuedSale } from "@/lib/offline-sales-queue";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,9 +123,6 @@ export default function VentesPage() {
   const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
     Object.keys(PAYMENT_METHOD_LABELS)
   );
-  const [queue, setQueue] = useState<QueuedSale[]>([]);
-  const [isOnline, setIsOnline] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SaleGroup | null>(null);
   const [mainTab, setMainTab] = useState("caisse");
@@ -149,22 +145,7 @@ export default function VentesPage() {
       .catch((err) => toast.error(err instanceof Error ? err.message : "Erreur ventes"));
   }
 
-  const runSync = useCallback(async () => {
-    if (getQueue().length === 0) return;
-    setSyncing(true);
-    try {
-      const { synced } = await syncQueue();
-      setQueue(getQueue());
-      if (synced > 0) toast.success(`${synced} vente(s) synchronisee(s)`);
-      loadAll();
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
-
   useEffect(() => {
-    setIsOnline(navigator.onLine);
-    setQueue(getQueue());
     loadAll();
     apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
     apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
@@ -173,25 +154,7 @@ export default function VentesPage() {
         d.organization.activePaymentMethods.includes(prev) ? prev : d.organization.activePaymentMethods[0]
       );
     });
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      runSync();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    const interval = setInterval(() => {
-      if (navigator.onLine) runSync();
-    }, 30000);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      clearInterval(interval);
-    };
-  }, [runSync]);
+  }, []);
 
   useEffect(() => {
     setHistoryPage(1);
@@ -319,26 +282,8 @@ export default function VentesPage() {
     if (cartLines.length === 0) return;
 
     const batchId = crypto.randomUUID();
-
-    if (!navigator.onLine) {
-      for (const line of cartLines) {
-        enqueueSale({
-          productId: line.product.id,
-          productName: line.product.name,
-          quantity: line.quantity,
-          discount: line.discount,
-          paymentMethod,
-          batchId,
-        });
-      }
-      setQueue(getQueue());
-      toast.warning(`Hors-ligne — ${cartLines.length} article(s) mis en attente`);
-      setCart([]);
-      return;
-    }
-
     setSubmitting(true);
-    let succeeded = 0;
+    const failedLines: CartLine[] = [];
     try {
       for (const line of cartLines) {
         try {
@@ -352,25 +297,20 @@ export default function VentesPage() {
               batchId,
             }),
           });
-          succeeded++;
         } catch {
-          enqueueSale({
-            productId: line.product.id,
-            productName: line.product.name,
-            quantity: line.quantity,
-            discount: line.discount,
-            paymentMethod,
-            batchId,
-          });
+          failedLines.push({ productId: line.product.id, quantity: line.quantity, discount: line.discount });
         }
       }
-      setQueue(getQueue());
-      if (succeeded === cartLines.length) {
+
+      const succeeded = cartLines.length - failedLines.length;
+      if (failedLines.length === 0) {
         toast.success(`Facture enregistree — ${formatFcfa(grandTotal)}`);
+      } else if (succeeded > 0) {
+        toast.warning(`${succeeded}/${cartLines.length} article(s) enregistres, ${failedLines.length} en erreur`);
       } else {
-        toast.warning(`${succeeded}/${cartLines.length} article(s) enregistres, le reste est en attente`);
+        toast.error("Echec de l'enregistrement — verifiez la connexion et reessayez");
       }
-      setCart([]);
+      setCart(failedLines);
       loadAll();
     } finally {
       setSubmitting(false);
@@ -387,26 +327,6 @@ export default function VentesPage() {
                 Caisse
               </p>
               <h1 className="text-xl font-bold tracking-tight">Ventes</h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {!isOnline && (
-                <span className="inline-flex h-9 items-center gap-1.5 border border-warning/30 bg-warning/10 px-3 text-xs font-medium text-warning">
-                  <WifiOff className="size-3.5" />
-                  Offline
-                </span>
-              )}
-              {queue.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-9"
-                  onClick={runSync}
-                  disabled={syncing || !isOnline}
-                >
-                  <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} />
-                  {queue.length} en attente
-                </Button>
-              )}
             </div>
           </div>
         </div>

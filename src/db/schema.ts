@@ -37,10 +37,9 @@ export const packageLabelValues = [
   "fut",
 ] as const;
 
-// Un tenant = une organisation Clerk = un bar/buvette.
-// L'id est directement l'org_id Clerk (pas de duplication d'identite).
+// Un tenant = un bar/buvette.
 export const organizations = pgTable("organizations", {
-  id: text("id").primaryKey(), // Clerk org id (org_xxx)
+  id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   city: text("city"),
   country: text("country").default("Cote d'Ivoire"),
@@ -58,6 +57,22 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const userRoleEnum = pgEnum("user_role", ["admin", "member"]);
+
+// Un utilisateur appartient a exactement un bar (pas de multi-org comme
+// pouvait le permettre Clerk) — organizationId est null jusqu'a ce que le
+// compte cree son bar (POST /api/v1/organization) ou soit rattache par un
+// gerant via la page Equipe.
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+  role: userRoleEnum("role").notNull().default("member"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("users_org_idx").on(t.organizationId)]);
+
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "trialing",
   "active",
@@ -69,7 +84,7 @@ export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
   // Un seul enregistrement d'abonnement par organisation : on suit l'etat
   // courant, l'historique de facturation reste dans Paystack.
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .unique()
     .references(() => organizations.id, { onDelete: "cascade" }),
@@ -87,7 +102,7 @@ export const subscriptions = pgTable("subscriptions", {
 // renommage ; seul le nom TypeScript est clarifie)
 export const productCategories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -97,7 +112,7 @@ export const productCategories = pgTable("categories", {
 // plutot que codees en dur cote frontend.
 export const expenseCategories = pgTable("expense_categories", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -105,7 +120,7 @@ export const expenseCategories = pgTable("expense_categories", {
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   categoryId: uuid("category_id").references(() => productCategories.id, { onDelete: "set null" }),
@@ -131,7 +146,7 @@ export const paymentMethodEnum = pgEnum("payment_method", paymentMethodValues);
 
 export const sales = pgTable("sales", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   productId: uuid("product_id")
@@ -165,7 +180,7 @@ export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
 // par une vente — c'est ce qui relie Ventes <-> Stock sans double saisie.
 export const stockMovements = pgTable("stock_movements", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   productId: uuid("product_id")
@@ -192,7 +207,7 @@ export const stockMovements = pgTable("stock_movements", {
 
 export const expenses = pgTable("expenses", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id")
+  organizationId: uuid("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   expenseDate: timestamp("expense_date", { withTimezone: true }).notNull(),
