@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "standalone",
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: ["**/node_modules/**", "**/.git/**", "**/.next/**", "**/.claude/**", "**/.agents/**"],
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
