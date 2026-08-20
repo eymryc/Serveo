@@ -97,7 +97,7 @@ export function RevenueTrendChart({
           axisLine={false}
           tickMargin={10}
           minTickGap={20}
-          interval={tickStep > 1 ? (index: number) => index % tickStep === 0 : "preserveStartEnd"}
+          interval={tickStep > 1 ? tickStep - 1 : "preserveStartEnd"}
           tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
         />
         <YAxis

@@ -272,6 +272,18 @@
     }
   }
 
+  .hero-type-animation::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 0.78em;
+    margin-left: 3px;
+    vertical-align: -0.08em;
+    border-radius: 1px;
+    background-color: var(--primary);
+    animation: hero-cursor-blink 0.95s step-end infinite;
+  }
+
   /* intl-tel-input — aligné sur le champ Input shadcn */
   .phone-input.iti {
     --iti-border-color: var(--border);

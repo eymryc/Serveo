@@ -41,19 +41,9 @@ export function HeroSlogan({ className }: { className?: string }) {
                 speed={36}
                 deletionSpeed={40}
                 repeat={Infinity}
-                cursor
+                cursor={false}
                 preRenderFirstString
-                className="font-bold text-primary"
-                cursorStyle={{
-                  display: "inline-block",
-                  width: "2px",
-                  height: "0.78em",
-                  marginLeft: "3px",
-                  verticalAlign: "-0.08em",
-                  borderRadius: "1px",
-                  backgroundColor: "var(--primary)",
-                  animation: "hero-cursor-blink 0.95s step-end infinite",
-                }}
+                className="hero-type-animation font-bold text-primary"
                 aria-label={PHRASES.join(" ")}
               />
             )}
