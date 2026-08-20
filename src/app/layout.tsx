@@ -22,7 +22,14 @@ export const metadata: Metadata = {
   title: "Serveo — Gerer. Servir. Simplifier.",
   description: "Ventes, stock et charges pour bars et buvettes, en temps reel.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon-192.png", apple: "/apple-icon.png" },
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
