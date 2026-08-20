@@ -64,12 +64,23 @@ describe("createProductSchema", () => {
     expect(result.stockMinThreshold).toBe(5);
   });
 
-  it("rejects an unknown unitLabel or packageLabel", () => {
+  it("accepts any unitLabel/packageLabel — the valid set is a per-bar custom list (Parametres), not a fixed enum", () => {
     expect(
       createProductSchema.safeParse({
         name: "Heineken 33cl",
         unitPrice: 600,
         unitLabel: "tonneau",
+        packageLabel: "palette",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects an empty unitLabel or packageLabel", () => {
+    expect(
+      createProductSchema.safeParse({
+        name: "Heineken 33cl",
+        unitPrice: 600,
+        unitLabel: "",
       }).success
     ).toBe(false);
 
@@ -77,7 +88,7 @@ describe("createProductSchema", () => {
       createProductSchema.safeParse({
         name: "Heineken 33cl",
         unitPrice: 600,
-        packageLabel: "palette",
+        packageLabel: "",
       }).success
     ).toBe(false);
   });

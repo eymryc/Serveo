@@ -12,19 +12,19 @@ import { registerSchema } from "@/lib/validation";
 export async function POST(req: NextRequest) {
   try {
     const body = registerSchema.parse(await req.json());
-    const email = body.email.trim().toLowerCase();
+    const phone = body.phone.trim();
     const db = getDb();
 
-    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone));
     if (existing) {
-      throw new HttpError(409, "Un compte existe deja avec cet email");
+      throw new HttpError(409, "Un compte existe deja avec ce numero de telephone");
     }
 
     const passwordHash = await hashPassword(body.password);
     const [user] = await db
       .insert(users)
-      .values({ name: body.name, email, passwordHash })
-      .returning({ id: users.id, name: users.name, email: users.email });
+      .values({ firstName: body.firstName, lastName: body.lastName, phone, passwordHash })
+      .returning({ id: users.id, firstName: users.firstName, lastName: users.lastName, phone: users.phone });
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {

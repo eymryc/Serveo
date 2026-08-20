@@ -52,8 +52,9 @@ export function EquipeClient() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<RoleKey>("member");
   const [creating, setCreating] = useState(false);
@@ -79,12 +80,13 @@ export function EquipeClient() {
     try {
       await apiFetch("/api/v1/team", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ firstName, lastName, phone, password, role }),
       });
       await fetchMembers();
-      toast.success(`Compte cree — communiquez le mot de passe a ${name} : ${password}`);
-      setName("");
-      setEmail("");
+      toast.success(`Compte cree — communiquez le mot de passe a ${firstName} : ${password}`);
+      setFirstName("");
+      setLastName("");
+      setPhone("");
       setPassword("");
       setRole("member");
     } catch (err) {
@@ -127,7 +129,7 @@ export function EquipeClient() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl space-y-4">
+      <div className="space-y-4">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-11 w-full" />
         <Skeleton className="h-56 w-full" />
@@ -136,7 +138,7 @@ export function EquipeClient() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Equipe"
         description="Creez les comptes de vos barmen et gerez les roles. Un gerant voit tout, un barman ne voit que la saisie et le stock."
@@ -156,18 +158,32 @@ export function EquipeClient() {
           className="grid gap-3 border-b border-border p-4 sm:grid-cols-2 sm:p-5"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="member-name">Nom</Label>
-            <Input id="member-name" required value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="member-firstName">Prenom</Label>
+            <Input
+              id="member-firstName"
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="member-email">Email</Label>
+            <Label htmlFor="member-lastName">Nom</Label>
             <Input
-              id="member-email"
-              type="email"
+              id="member-lastName"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="barman@exemple.com"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="member-phone">Numero de telephone</Label>
+            <Input
+              id="member-phone"
+              type="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="07 12 34 56 78"
             />
           </div>
           <div className="space-y-1.5">
@@ -216,9 +232,11 @@ export function EquipeClient() {
                     className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/40"
                   >
                     <td className="px-4 py-3 sm:px-5">
-                      <p className="font-semibold tracking-tight">{m.name}</p>
+                      <p className="font-semibold tracking-tight">
+                        {m.firstName} {m.lastName}
+                      </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {m.email}
+                        {m.phone}
                         {isSelf ? " · vous" : ""}
                       </p>
                     </td>
@@ -255,7 +273,7 @@ export function EquipeClient() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
-                              onClick={() => setRemoveTarget({ id: m.id, name: m.name })}
+                              onClick={() => setRemoveTarget({ id: m.id, name: `${m.firstName} ${m.lastName}` })}
                             >
                               Retirer
                             </DropdownMenuItem>

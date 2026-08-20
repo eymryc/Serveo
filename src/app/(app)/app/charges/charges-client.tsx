@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Banknote, Plus, Receipt, Search, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
+import { DEFAULT_PERIOD_SELECTION, resolvePeriodSelection } from "@/lib/dashboard-math";
 import { formatFcfa } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, type Category, type Expense, type Organization } from "@/lib/types";
+import { PAYMENT_METHOD_LABELS, type Category, type Expense, type Organization, type PeriodSelection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { PeriodSelector } from "@/components/dashboard/period-selector";
 import { PageHeader } from "@/components/page-header";
 import {
   KpiCell,
@@ -34,6 +36,7 @@ const ALL_PAYMENTS = "all";
 type ExpenseSortKey = "date" | "label" | "category" | "amount" | "payment";
 
 export default function ChargesPage() {
+  const [period, setPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
@@ -58,11 +61,18 @@ export default function ChargesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
 
-  function loadExpenses() {
-    apiFetch<{ expenses: Expense[] }>("/api/v1/expenses").then((d) => setExpenses(d.expenses));
+  function loadExpenses(selection: PeriodSelection = period) {
+    const { from, to } = resolvePeriodSelection(selection);
+    const qs = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+    });
+    apiFetch<{ expenses: Expense[] }>(`/api/v1/expenses?${qs}`).then((d) => setExpenses(d.expenses));
   }
 
-  useEffect(loadExpenses, []);
+  useEffect(() => {
+    loadExpenses(period);
+  }, [period.preset, period.customFrom, period.customTo]);
   useEffect(() => {
     apiFetch<{ categories: Category[] }>("/api/v1/expense-categories").then((d) => {
       setCategories(d.categories);
@@ -79,7 +89,7 @@ export default function ChargesPage() {
   }, []);
   useEffect(() => {
     setPage(1);
-  }, [search, categoryFilter, paymentFilter, pageSize, sort]);
+  }, [search, categoryFilter, paymentFilter, pageSize, sort, period.preset, period.customFrom, period.customTo]);
 
   const categoryName = (id: string | null) =>
     id ? (categories.find((c) => c.id === id)?.name ?? "—") : "Sans categorie";
@@ -192,13 +202,15 @@ export default function ChargesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Charges"
-        description="Suivi des depenses du bar — reserve au gerant."
+        description="Suivi des dépenses du bar — réservé au gérant."
         action={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> Nouvelle charge
           </Button>
         }
       />
+
+      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
 
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">

@@ -37,8 +37,12 @@ export function HorizontalBarChart({
 
   return (
     <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
-      <BarChart data={data} layout="vertical" margin={{ left: 0, right: 24, top: 0, bottom: 0 }}>
-        <XAxis type="number" hide />
+      <BarChart data={data} layout="vertical" margin={{ left: 0, right: 40, top: 0, bottom: 0 }}>
+        {/* +20% de marge sur le domaine : sans ca, la barre de plus grande
+            valeur occupe 100% de la largeur du graphique et son label
+            ("11 700 FCFA") n'a plus de place a droite — Recharts le
+            retourne alors a la ligne (repli automatique du <Text/>). */}
+        <XAxis type="number" hide domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]} />
         <YAxis
           type="category"
           dataKey="label"

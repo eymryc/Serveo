@@ -3,16 +3,35 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { organizations } from "@/db/schema";
-import { AppShell, type NavItem } from "@/components/app-shell";
+import { AppShell, type NavGroup, type NavItem } from "@/components/app-shell";
 
-const NAV_ITEMS: (NavItem & { adminOnly: boolean })[] = [
-  { href: "/app", label: "Tableau de bord", icon: "dashboard", adminOnly: false },
-  { href: "/app/ventes", label: "Ventes", icon: "ventes", adminOnly: false },
-  { href: "/app/articles", label: "Articles", icon: "articles", adminOnly: true },
-  { href: "/app/stock", label: "Stock", icon: "stock", adminOnly: false },
-  { href: "/app/charges", label: "Charges", icon: "charges", adminOnly: true },
-  { href: "/app/equipe", label: "Equipe", icon: "equipe", adminOnly: true },
-  { href: "/app/parametres", label: "Parametres", icon: "parametres", adminOnly: true },
+// Regroupees par usage : Activite (quotidien, tout le monde), Gestion
+// (catalogue/depenses/analyses, gerant), Administration (equipe/reglages,
+// gerant) — plutot qu'une longue liste plate.
+const NAV_GROUPS: { label: string; items: (NavItem & { adminOnly: boolean })[] }[] = [
+  {
+    label: "Activite",
+    items: [
+      { href: "/app", label: "Tableau de bord", icon: "dashboard", adminOnly: false },
+      { href: "/app/ventes", label: "Ventes", icon: "ventes", adminOnly: false },
+      { href: "/app/stock", label: "Stock", icon: "stock", adminOnly: false },
+    ],
+  },
+  {
+    label: "Gestion",
+    items: [
+      { href: "/app/articles", label: "Articles", icon: "articles", adminOnly: true },
+      { href: "/app/charges", label: "Charges", icon: "charges", adminOnly: true },
+      { href: "/app/rapports", label: "Rapports", icon: "rapports", adminOnly: true },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { href: "/app/equipe", label: "Equipe", icon: "equipe", adminOnly: true },
+      { href: "/app/parametres", label: "Parametres", icon: "parametres", adminOnly: true },
+    ],
+  },
 ];
 
 // Verification d'auth au niveau du layout (pas middleware-based, cf.
@@ -36,11 +55,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [organization] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, orgId));
 
   const isAdmin = orgRole === "org:admin";
-  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const visibleGroups: NavGroup[] = NAV_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.items.filter((item) => !item.adminOnly || isAdmin),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <AppShell
-      navItems={visibleItems}
+      navGroups={visibleGroups}
       isAdmin={isAdmin}
       userName={userName ?? "Compte"}
       orgName={organization?.name ?? "Mon bar"}

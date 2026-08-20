@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -13,13 +12,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
-import type { Category, Product, StockMovementWithProduct } from "@/lib/types";
+import { DEFAULT_PERIOD_SELECTION, resolvePeriodSelection } from "@/lib/dashboard-math";
+import type { Category, PeriodSelection, Product, StockMovementWithProduct } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PeriodSelector } from "@/components/dashboard/period-selector";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,7 +88,6 @@ function stockBarRatio(current: number, threshold: number) {
 }
 
 export default function StockPage() {
-  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tab, setTab] = useState("articles");
@@ -95,6 +102,7 @@ export default function StockPage() {
   const [productPage, setProductPage] = useState(1);
   const [productPageSize, setProductPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
 
+  const [movementPeriod, setMovementPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
   const [movements, setMovements] = useState<StockMovementWithProduct[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(true);
   const [movementProductFilter, setMovementProductFilter] = useState(ALL_PRODUCTS);
@@ -108,19 +116,28 @@ export default function StockPage() {
   const [movementPageSize, setMovementPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [reverseTarget, setReverseTarget] = useState<MovementGroup | null>(null);
   const [reversing, setReversing] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<MovementGroup | null>(null);
 
   function loadProducts() {
     apiFetch<{ products: Product[] }>("/api/v1/products").then((d) => setProducts(d.products));
   }
 
-  function loadMovements() {
-    apiFetch<{ movements: StockMovementWithProduct[] }>("/api/v1/stock-movements")
+  function loadMovements(selection: PeriodSelection = movementPeriod) {
+    setLoadingMovements(true);
+    const { from, to } = resolvePeriodSelection(selection);
+    const qs = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+    });
+    apiFetch<{ movements: StockMovementWithProduct[] }>(`/api/v1/stock-movements?${qs}`)
       .then((d) => setMovements(d.movements))
       .finally(() => setLoadingMovements(false));
   }
 
   useEffect(loadProducts, []);
-  useEffect(loadMovements, []);
+  useEffect(() => {
+    loadMovements(movementPeriod);
+  }, [movementPeriod.preset, movementPeriod.customFrom, movementPeriod.customTo]);
   useEffect(() => {
     apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
   }, []);
@@ -135,7 +152,7 @@ export default function StockPage() {
 
   useEffect(() => {
     setMovementPage(1);
-  }, [movementProductFilter, movementTypeFilter, movementSearch, movementPageSize, movementSort]);
+  }, [movementProductFilter, movementTypeFilter, movementSearch, movementPageSize, movementSort, movementPeriod.preset, movementPeriod.customFrom, movementPeriod.customTo]);
 
   const categoryName = (id: string | null) =>
     id ? (categories.find((c) => c.id === id)?.name ?? "—") : "Sans categorie";
@@ -276,8 +293,9 @@ export default function StockPage() {
       await apiFetch(`/api/v1/stock-movements/${reverseTarget.batchId}/reverse`, { method: "POST" });
       toast.success("Mouvement annule");
       loadProducts();
-      loadMovements();
+      loadMovements(movementPeriod);
       setReverseTarget(null);
+      setSelectedGroup(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -520,6 +538,13 @@ export default function StockPage() {
         </TabsContent>
 
         <TabsContent value="historique" className="mt-0 space-y-3 outline-none">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Mouvements sur la periode selectionnee.
+            </p>
+            <PeriodSelector value={movementPeriod} onChange={setMovementPeriod} />
+          </div>
+
           <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
             <KpiCell label="Evenements" value={loadingMovements ? "…" : String(movementGroups.length)} />
             <KpiCell
@@ -621,7 +646,6 @@ export default function StockPage() {
                       (group.type === "entry" || group.type === "adjustment");
                     const deltaSample = group.items[0]?.quantityDelta ?? 0;
                     const isPositiveType = group.type === "entry" || group.type === "initial";
-                    const detailHref = `/app/stock/historique/${group.key}`;
                     const unitLabel =
                       !isMulti
                         ? products.find((p) => p.id === group.items[0]?.productId)?.unitLabel
@@ -631,7 +655,7 @@ export default function StockPage() {
                     return (
                       <tr
                         key={group.key}
-                        onClick={() => router.push(detailHref)}
+                        onClick={() => setSelectedGroup(group)}
                         className={cn(
                           "cursor-pointer border-b border-border transition-colors hover:bg-muted/40",
                           group.reversed && "opacity-60",
@@ -703,8 +727,8 @@ export default function StockPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={detailHref}>Consulter</Link>
+                              <DropdownMenuItem onClick={() => setSelectedGroup(group)}>
+                                Consulter
                               </DropdownMenuItem>
                               {group.reversed ? (
                                 <DropdownMenuItem disabled>Deja annule</DropdownMenuItem>
@@ -728,7 +752,9 @@ export default function StockPage() {
                   {!loadingMovements && movementPager.total === 0 && (
                     <tr>
                       <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                        Aucun mouvement ne correspond aux filtres.
+                        {movements.length === 0
+                          ? "Aucun mouvement sur cette periode."
+                          : "Aucun mouvement ne correspond aux filtres."}
                       </td>
                     </tr>
                   )}
@@ -775,6 +801,132 @@ export default function StockPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Sheet open={!!selectedGroup} onOpenChange={(open) => !open && setSelectedGroup(null)}>
+        <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
+          {selectedGroup && (
+            <>
+              {(() => {
+                const isEntry = selectedGroup.type === "entry" || selectedGroup.type === "initial";
+                const canReverse =
+                  !!selectedGroup.batchId &&
+                  !selectedGroup.reversed &&
+                  !selectedGroup.isReversal &&
+                  (selectedGroup.type === "entry" || selectedGroup.type === "adjustment");
+                const totalUnits = selectedGroup.items.reduce(
+                  (sum, item) => sum + Math.abs(item.quantityDelta),
+                  0
+                );
+                const statusLabel = selectedGroup.reversed
+                  ? "Annule"
+                  : selectedGroup.isReversal
+                    ? "Correction"
+                    : "Actif";
+                const statusTone = selectedGroup.reversed || selectedGroup.isReversal
+                  ? "neutral"
+                  : isEntry
+                    ? "good"
+                    : "bad";
+
+                return (
+                  <>
+                    <SheetHeader className="border-b border-border">
+                      <div className="flex items-center gap-2">
+                        {isEntry ? (
+                          <ArrowDownLeft className="size-4 text-success" />
+                        ) : (
+                          <ArrowUpRight className="size-4 text-destructive" />
+                        )}
+                        <SheetTitle className="text-lg font-bold tracking-tight">
+                          {MOVEMENT_TYPE_LABELS[selectedGroup.type]}
+                        </SheetTitle>
+                        <StatusBadge tone={statusTone as "good" | "bad" | "neutral"}>
+                          {statusLabel}
+                        </StatusBadge>
+                      </div>
+                      <SheetDescription asChild>
+                        <div className="space-y-1 pt-1 text-sm">
+                          <p className="font-figures font-medium text-foreground">
+                            {formatMovementDate(selectedGroup.createdAt)}
+                          </p>
+                          <p>{selectedGroup.note?.trim() || "Sans motif"}</p>
+                        </div>
+                      </SheetDescription>
+                    </SheetHeader>
+
+                    <div className="flex-1 overflow-y-auto px-4 py-2">
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr className="border-b border-border text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                            <th className="py-2 font-semibold">Article</th>
+                            <th className="py-2 text-right font-semibold">Quantite</th>
+                            <th className="py-2 text-right font-semibold">Delta</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-dashed divide-border">
+                          {selectedGroup.items.map((item) => {
+                            const unit =
+                              products.find((p) => p.id === item.productId)?.unitLabel ?? "piece";
+                            const abs = Math.abs(item.quantityDelta);
+                            return (
+                              <tr key={item.id}>
+                                <td className="py-2.5 pr-2 font-medium">{item.productName}</td>
+                                <td className="py-2.5 text-right text-muted-foreground">
+                                  <span className="font-figures">{abs}</span>
+                                  <span className="ml-1 text-[11px]">
+                                    {unit}
+                                    {abs !== 1 ? "(s)" : ""}
+                                  </span>
+                                </td>
+                                <td
+                                  className={cn(
+                                    "font-figures py-2.5 text-right font-semibold",
+                                    item.quantityDelta > 0 ? "text-success" : "text-destructive"
+                                  )}
+                                >
+                                  {item.quantityDelta > 0 ? "+" : ""}
+                                  {item.quantityDelta}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-auto space-y-3 border-t border-border px-4 py-4">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-sm text-muted-foreground">
+                          {selectedGroup.items.length} ligne{selectedGroup.items.length > 1 ? "s" : ""}
+                        </span>
+                        <span
+                          className={cn(
+                            "font-figures text-xl font-bold tracking-tight",
+                            isEntry ? "text-success" : "text-destructive"
+                          )}
+                        >
+                          {isEntry ? "+" : "−"}
+                          {totalUnits}
+                        </span>
+                      </div>
+                      {canReverse && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full border-destructive/40 text-destructive hover:bg-destructive/5"
+                          onClick={() => setReverseTarget(selectedGroup)}
+                        >
+                          Annuler le mouvement
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

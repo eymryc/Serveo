@@ -260,4 +260,77 @@
       transform: none;
     }
   }
+
+  @keyframes hero-cursor-blink {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* intl-tel-input — aligné sur le champ Input shadcn */
+  .phone-input.iti {
+    --iti-border-color: var(--border);
+    --iti-hover-color: color-mix(in oklch, var(--foreground) 6%, transparent);
+    --iti-country-selector-bg: #e3ede9;
+    --iti-icon-color: var(--muted-foreground);
+
+    display: block;
+    width: 100%;
+  }
+
+  .phone-input input.iti__tel-input {
+    height: 2.75rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--input);
+    background: transparent;
+    padding-right: 0.875rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--foreground);
+    transition: color 150ms, border-color 150ms, box-shadow 150ms;
+  }
+
+  .phone-input input.iti__tel-input::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .phone-input input.iti__tel-input:focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  .phone-input input.iti__tel-input[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  .phone-input .iti__selected-country {
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+  }
+
+  .phone-input .iti__dropdown-content {
+    border-radius: var(--radius-md);
+    border-color: var(--border);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: 0 10px 30px color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+
+  .phone-input .iti__search-input {
+    border-radius: var(--radius-md);
+    border-color: var(--input);
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  .dark .phone-input input.iti__tel-input {
+    background: color-mix(in oklch, var(--input) 30%, transparent);
+  }
 }

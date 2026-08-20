@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 // bascule l'affichage — pas de useState/useEffect pour eviter le
 // mismatch d'hydratation, le rendu serveur et le premier rendu client
 // restent identiques.
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
@@ -16,6 +16,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label="Changer de theme"
+      className={className}
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
       <Sun className="size-4 dark:hidden" />

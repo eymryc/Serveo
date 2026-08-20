@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LogoMark } from "@/components/logo-mark";
 
 export function OnboardingClient() {
   const router = useRouter();
@@ -37,6 +38,14 @@ export function OnboardingClient() {
       className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm"
     >
       <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
+
+      <div className="flex justify-center pb-2">
+        <LogoMark
+          size="xl"
+          priority
+          className="h-14 w-auto object-contain object-center sm:h-16"
+        />
+      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="bar-name">Nom du bar</Label>

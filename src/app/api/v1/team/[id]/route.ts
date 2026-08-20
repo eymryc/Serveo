@@ -26,7 +26,14 @@ export async function PATCH(
       .update(users)
       .set({ role: body.role })
       .where(and(eq(users.id, id), eq(users.organizationId, organizationId)))
-      .returning({ id: users.id, name: users.name, email: users.email, role: users.role, createdAt: users.createdAt });
+      .returning({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        role: users.role,
+        createdAt: users.createdAt,
+      });
 
     if (!member) throw new HttpError(404, "Membre introuvable");
 

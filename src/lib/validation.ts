@@ -1,13 +1,7 @@
 import { z } from "zod";
-import {
-  packageLabelValues,
-  paymentMethodValues,
-  unitLabelValues,
-} from "@/db/schema";
+import { paymentMethodValues } from "@/db/schema";
 
 export const paymentMethods = paymentMethodValues;
-export const unitLabels = unitLabelValues;
-export const packageLabels = packageLabelValues;
 
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
@@ -17,9 +11,12 @@ export const createProductSchema = z.object({
   // Le stock reste toujours compte en unites (unitLabel : "bouteille",
   // "sachet"...). packageLabel/unitsPerPackage ne decrivent que le
   // format d'achat fournisseur (ex: "casier" de 24) pour convertir les
-  // receptions de stock — la vente reste toujours a l'unite.
-  unitLabel: z.enum(unitLabelValues).default("bouteille"),
-  packageLabel: z.enum(packageLabelValues).optional().nullable(),
+  // receptions de stock — la vente reste toujours a l'unite. Les valeurs
+  // possibles sont propres a chaque bar (cf. tables unit_labels/
+  // package_labels), donc validees comme du texte libre ici plutot
+  // qu'un enum fixe.
+  unitLabel: z.string().min(1).max(50).default("bouteille"),
+  packageLabel: z.string().min(1).max(50).optional().nullable(),
   unitsPerPackage: z.coerce.number().int().positive().optional().nullable(),
   initialStock: z.coerce.number().int().nonnegative().default(0),
   stockMinThreshold: z.coerce.number().int().nonnegative().default(5),
@@ -30,8 +27,8 @@ export const updateProductSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   unitPrice: z.coerce.number().nonnegative().optional(),
   purchasePrice: z.coerce.number().nonnegative().optional(),
-  unitLabel: z.enum(unitLabelValues).optional(),
-  packageLabel: z.enum(packageLabelValues).nullable().optional(),
+  unitLabel: z.string().min(1).max(50).optional(),
+  packageLabel: z.string().min(1).max(50).nullable().optional(),
   unitsPerPackage: z.coerce.number().int().positive().nullable().optional(),
   stockMinThreshold: z.coerce.number().int().nonnegative().optional(),
   isActive: z.coerce.number().int().min(0).max(1).optional(),
@@ -88,10 +85,23 @@ export const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
 });
 
+const phoneSchema = z
+  .string()
+  .trim()
+  .min(8)
+  .max(20)
+  .regex(/^[0-9+ ()-]+$/, "Numero de telephone invalide");
+
 export const registerSchema = z.object({
-  name: z.string().min(1).max(200),
-  email: z.string().email().max(320),
+  firstName: z.string().min(1).max(200),
+  lastName: z.string().min(1).max(200),
+  phone: phoneSchema,
   password: z.string().min(8).max(200),
+});
+
+export const loginSchema = z.object({
+  phone: phoneSchema,
+  password: z.string().min(1),
 });
 
 export const createOrganizationSchema = z.object({
@@ -101,8 +111,9 @@ export const createOrganizationSchema = z.object({
 const teamRoleValues = ["admin", "member"] as const;
 
 export const createTeamMemberSchema = z.object({
-  name: z.string().min(1).max(200),
-  email: z.string().email().max(320),
+  firstName: z.string().min(1).max(200),
+  lastName: z.string().min(1).max(200),
+  phone: phoneSchema,
   password: z.string().min(8).max(200),
   role: z.enum(teamRoleValues).default("member"),
 });

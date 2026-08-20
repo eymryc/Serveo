@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Plus, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
@@ -68,6 +68,7 @@ function NouveauMouvementForm() {
   const [movementNote, setMovementNote] = useState("");
   const [lines, setLines] = useState<MovementLine[]>([emptyLine()]);
   const [submitting, setSubmitting] = useState(false);
+  const [recapExpanded, setRecapExpanded] = useState(false);
 
   useEffect(() => {
     apiFetch<{ products: Product[] }>("/api/v1/products").then((d) => setProducts(d.products));
@@ -167,7 +168,7 @@ function NouveauMouvementForm() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-[calc(11rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
       <PageHeader
         title={isEntry ? "Entree de stock" : "Sortie de stock"}
         description={
@@ -224,12 +225,12 @@ function NouveauMouvementForm() {
                     key={index}
                     className="space-y-1.5 border border-border bg-background p-2.5"
                   >
-                    <div className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_auto_auto]">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Select
                         value={line.productId}
                         onValueChange={(v) => updateLine(index, { productId: v, unit: "unit" })}
                       >
-                        <SelectTrigger className="min-w-0 w-full">
+                        <SelectTrigger className="order-1 min-w-0 flex-1 basis-40">
                           <SelectValue placeholder="Choisir un article" />
                         </SelectTrigger>
                         <SelectContent>
@@ -248,26 +249,9 @@ function NouveauMouvementForm() {
                         min={1}
                         value={line.quantity}
                         onChange={(e) => updateLine(index, { quantity: Number(e.target.value) })}
-                        className="w-full sm:w-20"
+                        className="order-2 w-20 shrink-0"
                         aria-label="Quantite"
                       />
-
-                      {hasPackage ? (
-                        <Select
-                          value={line.unit}
-                          onValueChange={(v) => updateLine(index, { unit: v as "unit" | "package" })}
-                        >
-                          <SelectTrigger className="w-full sm:w-28">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unit">{product?.unitLabel}(s)</SelectItem>
-                            <SelectItem value="package">{product?.packageLabel}(s)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="hidden sm:block" />
-                      )}
 
                       <Button
                         type="button"
@@ -276,9 +260,25 @@ function NouveauMouvementForm() {
                         onClick={() => removeLine(index)}
                         disabled={lines.length === 1 && !line.productId}
                         aria-label="Retirer la ligne"
+                        className="order-3 shrink-0 sm:order-4"
                       >
                         <Trash2 className="size-4" />
                       </Button>
+
+                      {hasPackage && (
+                        <Select
+                          value={line.unit}
+                          onValueChange={(v) => updateLine(index, { unit: v as "unit" | "package" })}
+                        >
+                          <SelectTrigger className="order-4 w-full sm:order-3 sm:w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unit">{product?.unitLabel}(s)</SelectItem>
+                            <SelectItem value="package">{product?.packageLabel}(s)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                     {product && units > 0 && (
                       <p className="font-figures px-0.5 text-[11px] text-muted-foreground sm:col-span-full">
@@ -312,34 +312,60 @@ function NouveauMouvementForm() {
           </div>
         </div>
 
-        <aside className="border border-border bg-card max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:pb-safe lg:sticky lg:top-20">
-          <div
+        <aside
+          className={cn(
+            "flex w-full max-w-none shrink-0 flex-col border border-border bg-card",
+            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:border-x-0 max-lg:border-b-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+            recapExpanded && "max-lg:max-h-[min(70dvh,34rem)]",
+            "lg:sticky lg:top-20"
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setRecapExpanded((v) => !v)}
             className={cn(
-              "border-b border-border px-4 py-3",
+              "flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 text-left lg:pointer-events-none",
               isEntry ? "bg-success/5" : "bg-destructive/5"
             )}
           >
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-              Recapitulatif
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              {isEntry ? (
-                <ArrowDownLeft className="size-4 text-success" />
-              ) : (
-                <ArrowUpRight className="size-4 text-destructive" />
-              )}
-              <p
-                className={cn(
-                  "text-base font-bold tracking-tight",
-                  isEntry ? "text-success" : "text-destructive"
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                Recapitulatif
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                {isEntry ? (
+                  <ArrowDownLeft className="size-4 text-success" />
+                ) : (
+                  <ArrowUpRight className="size-4 text-destructive" />
                 )}
-              >
-                {isEntry ? "Entree de stock" : "Sortie de stock"}
+                <p
+                  className={cn(
+                    "text-base font-bold tracking-tight",
+                    isEntry ? "text-success" : "text-destructive"
+                  )}
+                >
+                  {isEntry ? "Entree de stock" : "Sortie de stock"}
+                </p>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {recapLines.length === 0
+                  ? "Vide — ajoutez un article"
+                  : `${totalUnits} unité${totalUnits > 1 ? "s" : ""} · ${recapLines.length} ligne${recapLines.length > 1 ? "s" : ""}`}
               </p>
             </div>
-          </div>
+            {recapExpanded ? (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground lg:hidden" />
+            ) : (
+              <ChevronUp className="size-4 shrink-0 text-muted-foreground lg:hidden" />
+            )}
+          </button>
 
-          <div className="space-y-3 border-b border-border px-4 py-3 text-sm">
+          <div
+            className={cn(
+              "shrink-0 space-y-3 border-b border-border px-4 py-3 text-sm",
+              !recapExpanded && "max-lg:hidden"
+            )}
+          >
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">Date</span>
               <span className="font-figures font-medium">
@@ -354,7 +380,7 @@ function NouveauMouvementForm() {
             </div>
           </div>
 
-          <div className="min-h-[12rem]">
+          <div className={cn("min-h-0 flex-1 overflow-y-auto lg:min-h-[12rem]", !recapExpanded && "max-lg:hidden")}>
             {recapLines.length === 0 ? (
               <div className="flex h-40 items-center justify-center px-6 text-center">
                 <p className="text-sm text-muted-foreground">
@@ -405,20 +431,9 @@ function NouveauMouvementForm() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-border px-4 py-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-sm text-muted-foreground">Total unites</span>
-              <span
-                className={cn(
-                  "font-figures text-2xl font-bold tracking-tight",
-                  isEntry ? "text-success" : "text-destructive"
-                )}
-              >
-                {recapLines.length === 0 ? "—" : `${isEntry ? "+" : "−"}${totalUnits}`}
-              </span>
-            </div>
+          <div className="shrink-0 space-y-3 border-t border-border px-4 py-4">
             {hasAmounts && (
-              <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
+              <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm text-muted-foreground">
                   {isEntry ? "Montant achat" : "Cout sorti"}
                 </span>

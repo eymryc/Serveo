@@ -5,13 +5,7 @@ import { Archive, MoreHorizontal, Package, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import {
-  PACKAGE_LABEL_OPTIONS,
-  UNIT_LABEL_OPTIONS,
-  type Category,
-  type Product,
-} from "@/lib/types";
-import { unitLabels, packageLabels } from "@/lib/validation";
+import { type Category, type Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,20 +63,11 @@ const EMPTY_FORM: FormState = {
   stockMinThreshold: "5",
 };
 
-function normalizeUnitLabel(value: string): string {
-  const lower = value.trim().toLowerCase();
-  return (unitLabels as readonly string[]).includes(lower) ? lower : "bouteille";
-}
-
-function normalizePackageLabel(value: string | null): string {
-  if (!value) return NO_PACKAGE;
-  const lower = value.trim().toLowerCase();
-  return (packageLabels as readonly string[]).includes(lower) ? lower : NO_PACKAGE;
-}
-
 export default function ArticlesPageClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [unitLabelList, setUnitLabelList] = useState<Category[]>([]);
+  const [packageLabelList, setPackageLabelList] = useState<Category[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -109,6 +94,29 @@ export default function ArticlesPageClient() {
   useEffect(() => {
     apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
   }, []);
+  useEffect(() => {
+    apiFetch<{ categories: Category[] }>("/api/v1/unit-labels").then((d) => setUnitLabelList(d.categories));
+  }, []);
+  useEffect(() => {
+    apiFetch<{ categories: Category[] }>("/api/v1/package-labels").then((d) => setPackageLabelList(d.categories));
+  }, []);
+
+  // Liste geree par bar (Parametres > Unites) — on garde toujours la valeur
+  // courante du formulaire selectionnable, meme si elle vient d'etre
+  // supprimee de la liste (pour ne pas casser l'edition d'un article
+  // existant qui l'utilise encore).
+  const unitOptions = useMemo(() => {
+    const names = unitLabelList.map((l) => l.name);
+    return form.unitLabel && !names.includes(form.unitLabel) ? [...names, form.unitLabel] : names;
+  }, [unitLabelList, form.unitLabel]);
+
+  const packageOptions = useMemo(() => {
+    const names = packageLabelList.map((l) => l.name);
+    return form.packageLabel !== NO_PACKAGE && !names.includes(form.packageLabel)
+      ? [...names, form.packageLabel]
+      : names;
+  }, [packageLabelList, form.packageLabel]);
+
   useEffect(() => {
     setPage(1);
   }, [search, categoryFilter, statusFilter, pageSize, sort]);
@@ -177,7 +185,10 @@ export default function ArticlesPageClient() {
 
   function openCreate() {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    const defaultUnit = unitLabelList.some((l) => l.name === EMPTY_FORM.unitLabel)
+      ? EMPTY_FORM.unitLabel
+      : (unitLabelList[0]?.name ?? EMPTY_FORM.unitLabel);
+    setForm({ ...EMPTY_FORM, unitLabel: defaultUnit });
     setDialogOpen(true);
   }
 
@@ -186,8 +197,8 @@ export default function ArticlesPageClient() {
     setForm({
       name: p.name,
       categoryId: p.categoryId ?? NO_CATEGORY,
-      unitLabel: normalizeUnitLabel(p.unitLabel),
-      packageLabel: normalizePackageLabel(p.packageLabel),
+      unitLabel: p.unitLabel,
+      packageLabel: p.packageLabel ?? NO_PACKAGE,
       unitsPerPackage: p.unitsPerPackage ? String(p.unitsPerPackage) : "",
       unitPrice: p.unitPrice,
       purchasePrice: p.purchasePrice ?? "0",
@@ -246,8 +257,7 @@ export default function ArticlesPageClient() {
     }
   }
 
-  const unitDisplay =
-    UNIT_LABEL_OPTIONS.find((o) => o.value === form.unitLabel)?.label.toLowerCase() ?? form.unitLabel;
+  const unitDisplay = form.unitLabel.toLowerCase();
 
   return (
     <div className="space-y-6">
@@ -388,7 +398,7 @@ export default function ArticlesPageClient() {
                     <td className="hidden px-4 py-2.5 text-muted-foreground lg:table-cell">
                       {p.packageLabel && p.unitsPerPackage
                         ? `${p.packageLabel} (${p.unitsPerPackage} ${p.unitLabel}s)`
-                        : "A l'unite"}
+                        : "À l'unité"}
                     </td>
                     <td className="font-figures px-4 py-2.5 text-right text-base font-bold tabular-nums">
                       {formatFcfa(Number(p.unitPrice))}
@@ -515,18 +525,18 @@ export default function ArticlesPageClient() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Unite de vente et de stock</Label>
+                  <Label>Unité de vente et de stock</Label>
                   <Select
                     value={form.unitLabel}
                     onValueChange={(v) => setForm({ ...form, unitLabel: v })}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choisir l'unite..." />
+                      <SelectValue placeholder="Choisir l'unité..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {UNIT_LABEL_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                      {unitOptions.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -535,44 +545,48 @@ export default function ArticlesPageClient() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Format d&apos;achat fournisseur</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    value={form.packageLabel}
-                    onValueChange={(v) =>
-                      setForm({
-                        ...form,
-                        packageLabel: v,
-                        unitsPerPackage: v === NO_PACKAGE ? "" : form.unitsPerPackage,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Comment vous achetez..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_PACKAGE}>A l&apos;unite (pas de colis)</SelectItem>
-                      {PACKAGE_LABEL_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min={1}
-                    required={form.packageLabel !== NO_PACKAGE}
-                    disabled={form.packageLabel === NO_PACKAGE}
-                    placeholder={`${unitDisplay}s / colis`}
-                    value={form.unitsPerPackage}
-                    onChange={(e) => setForm({ ...form, unitsPerPackage: e.target.value })}
-                  />
+                  <div className="space-y-1.5">
+                    <Label>Format d&apos;achat fournisseur</Label>
+                    <Select
+                      value={form.packageLabel}
+                      onValueChange={(v) =>
+                        setForm({
+                          ...form,
+                          packageLabel: v,
+                          unitsPerPackage: v === NO_PACKAGE ? "" : form.unitsPerPackage,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Comment vous achetez..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_PACKAGE}>À l&apos;unité (pas de colis)</SelectItem>
+                        {packageOptions.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="unitsPerPackage">
+                      {`${unitDisplay}s par ${form.packageLabel !== NO_PACKAGE ? form.packageLabel.toLowerCase() : "colis"}`}
+                    </Label>
+                    <Input
+                      id="unitsPerPackage"
+                      type="number"
+                      min={1}
+                      required={form.packageLabel !== NO_PACKAGE}
+                      disabled={form.packageLabel === NO_PACKAGE}
+                      placeholder="Ex: 24"
+                      value={form.unitsPerPackage}
+                      onChange={(e) => setForm({ ...form, unitsPerPackage: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Ex. : casier de 24 {unitDisplay}s — pour saisir les receptions de stock
-                  par colis plutot qu&apos;a l&apos;unite.
-                </p>
               </div>
 
               <div className="space-y-1.5">

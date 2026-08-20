@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Minus, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { ChevronUp, Minus, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, type Category, type Organization, type Product, type Sale } from "@/lib/types";
+import { DEFAULT_PERIOD_SELECTION, resolvePeriodSelection } from "@/lib/dashboard-math";
+import { PAYMENT_METHOD_LABELS, type Category, type Organization, type PeriodKey, type PeriodSelection, type Product, type Sale } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   paginate,
   TablePagination,
 } from "@/components/data-table";
+import { PeriodSelector } from "@/components/dashboard/period-selector";
 
 const ALL_CATEGORIES = "all";
 const ALL_PAYMENTS = "all";
@@ -40,10 +42,20 @@ type SaleGroup = {
   unitCount: number;
 };
 
-function startOfTodayIso() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+function periodKpiLabels(period: PeriodKey) {
+  switch (period) {
+    case "today":
+      return { revenue: "CA du jour", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+    case "week":
+      return { revenue: "CA semaine", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+    case "year":
+      return { revenue: "CA annee", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+    case "custom":
+      return { revenue: "CA periode", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+    case "month":
+    default:
+      return { revenue: "CA du mois", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+  }
 }
 
 function groupSalesByTicket(sales: Sale[]): SaleGroup[] {
@@ -126,6 +138,7 @@ export default function VentesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SaleGroup | null>(null);
   const [mainTab, setMainTab] = useState("caisse");
+  const [historyPeriod, setHistoryPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
@@ -135,18 +148,32 @@ export default function VentesPage() {
   const [historyPageSize, setHistoryPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("especes");
+  const [cartSheetOpen, setCartSheetOpen] = useState(false);
 
-  function loadAll() {
+  function loadProducts() {
     apiFetch<{ products: Product[] }>("/api/v1/products")
       .then((d) => setProducts(d.products))
       .catch((err) => toast.error(err instanceof Error ? err.message : "Erreur produits"));
-    apiFetch<{ sales: Sale[] }>(`/api/v1/sales?from=${encodeURIComponent(startOfTodayIso())}`)
+  }
+
+  function loadSales(selection: PeriodSelection) {
+    const { from, to } = resolvePeriodSelection(selection);
+    const qs = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+    });
+    apiFetch<{ sales: Sale[] }>(`/api/v1/sales?${qs}`)
       .then((d) => setSales(d.sales))
       .catch((err) => toast.error(err instanceof Error ? err.message : "Erreur ventes"));
   }
 
+  function loadAll() {
+    loadProducts();
+    loadSales(historyPeriod);
+  }
+
   useEffect(() => {
-    loadAll();
+    loadProducts();
     apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
     apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
       setActivePaymentMethods(d.organization.activePaymentMethods);
@@ -155,6 +182,10 @@ export default function VentesPage() {
       );
     });
   }, []);
+
+  useEffect(() => {
+    loadSales(historyPeriod);
+  }, [historyPeriod.preset, historyPeriod.customFrom, historyPeriod.customTo]);
 
   useEffect(() => {
     setHistoryPage(1);
@@ -240,6 +271,8 @@ export default function VentesPage() {
     return used.sort((a, b) => a.localeCompare(b, "fr"));
   }, [todayStats.byPayment]);
 
+  const historyKpis = periodKpiLabels(historyPeriod.preset);
+
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
@@ -311,11 +344,152 @@ export default function VentesPage() {
         toast.error("Echec de l'enregistrement — verifiez la connexion et reessayez");
       }
       setCart(failedLines);
+      if (failedLines.length === 0) setCartSheetOpen(false);
       loadAll();
     } finally {
       setSubmitting(false);
     }
   }
+
+  const cartBody = (
+    <>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {cartLines.length === 0 ? (
+          <div className="flex h-full min-h-[6rem] items-center justify-center px-6 text-center">
+            <p className="text-sm text-muted-foreground">Le ticket apparait ici.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-dashed divide-border">
+            {cartLines.map((line) => (
+              <li key={line.productId} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold leading-snug">{line.product.name}</p>
+                    <p className="font-figures mt-0.5 text-[11px] text-muted-foreground">
+                      {formatFcfa(line.unitPrice)} × {line.quantity} {line.product.unitLabel}
+                      {line.quantity > 1 ? "(s)" : ""}
+                      {line.discount > 0 && (
+                        <span className="text-destructive"> − {formatFcfa(line.discount)}</span>
+                      )}
+                    </p>
+                  </div>
+                  <p className="font-figures shrink-0 text-sm font-bold tabular-nums">
+                    {formatFcfa(line.lineTotal)}
+                  </p>
+                </div>
+
+                <div className="mt-2.5 flex items-center gap-2">
+                  <div className="flex h-11 items-center border border-border bg-background">
+                    <button
+                      type="button"
+                      className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={() => updateQuantity(line.productId, -1)}
+                      aria-label="Diminuer"
+                    >
+                      <Minus className="size-3.5" />
+                    </button>
+                    <span className="font-figures w-8 text-center text-sm font-bold">{line.quantity}</span>
+                    <button
+                      type="button"
+                      className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                      onClick={() => updateQuantity(line.productId, 1)}
+                      disabled={line.quantity >= line.product.currentStock}
+                      aria-label="Augmenter"
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                  </div>
+
+                  <Input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={line.discount || ""}
+                    onChange={(e) => updateDiscount(line.productId, Number(e.target.value))}
+                    placeholder="Remise"
+                    className="font-figures h-11 min-w-0 flex-1 px-2 text-right text-xs"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(line.productId)}
+                    className="flex size-11 shrink-0 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
+                    aria-label="Retirer"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-border bg-card">
+        {cartLines.length > 0 && (
+          <div className="space-y-2 border-b border-border px-4 py-3">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Paiement
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {activePaymentMethods.map((value) => {
+                const active = paymentMethod === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPaymentMethod(value)}
+                    className={cn(
+                      "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    )}
+                  >
+                    {PAYMENT_METHOD_LABELS[value] ?? value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3 px-4 py-4">
+          {cartLines.length > 0 && (
+            <div className="font-figures space-y-1 text-xs text-muted-foreground">
+              <div className="flex justify-between gap-3">
+                <span>Sous-total</span>
+                <span className="text-foreground">
+                  {formatFcfa(cartLines.reduce((s, l) => s + l.subtotal, 0))}
+                </span>
+              </div>
+              {cartLines.some((l) => l.discount > 0) && (
+                <div className="flex justify-between gap-3">
+                  <span>Remises</span>
+                  <span className="text-destructive">
+                    − {formatFcfa(cartLines.reduce((s, l) => s + l.discount, 0))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
+            <span className="text-sm font-medium text-muted-foreground">Total</span>
+            <span className="font-figures text-2xl font-bold tracking-tight">
+              {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
+            </span>
+          </div>
+          <Button
+            className="h-12 w-full text-base font-semibold"
+            onClick={handleSubmit}
+            disabled={cartLines.length === 0 || submitting}
+          >
+            {submitting ? "Enregistrement…" : "Encaisser"}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 z-10 flex bg-background md:inset-y-0 md:top-[calc(4rem+env(safe-area-inset-top,0px))] md:left-60">
@@ -386,14 +560,7 @@ export default function VentesPage() {
               )}
             </div>
 
-            <div
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 md:px-5 lg:pb-4",
-                cartLines.length === 0
-                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
-                  : "pb-[calc(14rem+env(safe-area-inset-bottom,0px))]"
-              )}
-            >
+            <div className="min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:px-5 lg:pb-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
                 {filteredProducts.map((p) => {
                   const qtyInCart = cartQtyByProduct.get(p.id) ?? 0;
@@ -442,11 +609,18 @@ export default function VentesPage() {
 
           <TabsContent value="historique" className="mt-0 flex min-h-0 flex-1 flex-col outline-none">
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Historique des factures sur la periode selectionnee.
+                </p>
+                <PeriodSelector value={historyPeriod} onChange={setHistoryPeriod} />
+              </div>
+
               <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
-                <KpiCell label="CA du jour" value={formatFcfa(todayStats.revenue)} tone="good" />
-                <KpiCell label="Factures" value={String(todayStats.invoices)} />
-                <KpiCell label="Ticket moyen" value={formatFcfa(todayStats.avgTicket)} />
-                <KpiCell label="Articles vendus" value={String(todayStats.units)} />
+                <KpiCell label={historyKpis.revenue} value={formatFcfa(todayStats.revenue)} tone="good" />
+                <KpiCell label={historyKpis.invoices} value={String(todayStats.invoices)} />
+                <KpiCell label={historyKpis.avg} value={formatFcfa(todayStats.avgTicket)} />
+                <KpiCell label={historyKpis.units} value={String(todayStats.units)} />
               </div>
 
               {paymentTabs.length > 0 && (
@@ -547,7 +721,7 @@ export default function VentesPage() {
                         <tr>
                           <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
                             {saleGroups.length === 0
-                              ? "Pas encore de vente aujourd'hui."
+                              ? "Pas encore de vente sur cette periode."
                               : "Aucune facture ne correspond aux filtres."}
                           </td>
                         </tr>
@@ -572,25 +746,8 @@ export default function VentesPage() {
         </Tabs>
       </section>
 
-      <aside
-        className={cn(
-          "flex w-full max-w-none shrink-0 flex-col border-l border-border bg-card",
-          "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:border-t max-lg:border-l-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
-          cartLines.length === 0
-            ? "max-lg:max-h-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
-            : "max-lg:max-h-[min(52dvh,30rem)]",
-          "lg:w-[22rem] xl:w-[24rem]",
-          mainTab === "historique" && "max-lg:hidden"
-        )}
-      >
-        <div
-          className={cn(
-            "mx-auto mt-2 h-1 w-10 bg-border lg:hidden",
-            cartLines.length === 0 && "hidden"
-          )}
-        />
-
-        <header className={cn("border-b border-border bg-primary/5 px-4 py-3", cartLines.length === 0 && "max-lg:border-b-0")}>
+      <aside className="hidden w-[22rem] shrink-0 flex-col border-l border-border bg-card lg:flex xl:w-[24rem]">
+        <header className="border-b border-border bg-primary/5 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
@@ -613,143 +770,58 @@ export default function VentesPage() {
             )}
           </div>
         </header>
-
-        <div className={cn("min-h-0 flex-1 overflow-y-auto", cartLines.length === 0 && "max-lg:hidden")}>
-          {cartLines.length === 0 ? (
-            <div className="flex h-full min-h-[6rem] items-center justify-center px-6 text-center">
-              <p className="text-sm text-muted-foreground">Le ticket apparait ici.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-dashed divide-border">
-              {cartLines.map((line) => (
-                <li key={line.productId} className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold leading-snug">{line.product.name}</p>
-                      <p className="font-figures mt-0.5 text-[11px] text-muted-foreground">
-                        {formatFcfa(line.unitPrice)} × {line.quantity} {line.product.unitLabel}
-                        {line.quantity > 1 ? "(s)" : ""}
-                        {line.discount > 0 && (
-                          <span className="text-destructive"> − {formatFcfa(line.discount)}</span>
-                        )}
-                      </p>
-                    </div>
-                    <p className="font-figures shrink-0 text-sm font-bold tabular-nums">
-                      {formatFcfa(line.lineTotal)}
-                    </p>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <div className="flex h-11 items-center border border-border bg-background">
-                      <button
-                        type="button"
-                        className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        onClick={() => updateQuantity(line.productId, -1)}
-                        aria-label="Diminuer"
-                      >
-                        <Minus className="size-3.5" />
-                      </button>
-                      <span className="font-figures w-8 text-center text-sm font-bold">{line.quantity}</span>
-                      <button
-                        type="button"
-                        className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                        onClick={() => updateQuantity(line.productId, 1)}
-                        disabled={line.quantity >= line.product.currentStock}
-                        aria-label="Augmenter"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
-                    </div>
-
-                    <Input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={line.discount || ""}
-                      onChange={(e) => updateDiscount(line.productId, Number(e.target.value))}
-                      placeholder="Remise"
-                      className="font-figures h-11 min-w-0 flex-1 px-2 text-right text-xs"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(line.productId)}
-                      className="flex size-11 shrink-0 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
-                      aria-label="Retirer"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className={cn("shrink-0 border-t border-border bg-card", cartLines.length === 0 && "max-lg:hidden")}>
-          {cartLines.length > 0 && (
-            <div className="space-y-2 border-b border-border px-4 py-3">
-              <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                Paiement
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {activePaymentMethods.map((value) => {
-                  const active = paymentMethod === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setPaymentMethod(value)}
-                      className={cn(
-                        "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      )}
-                    >
-                      {PAYMENT_METHOD_LABELS[value] ?? value}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3 px-4 py-4">
-            {cartLines.length > 0 && (
-              <div className="font-figures space-y-1 text-xs text-muted-foreground">
-                <div className="flex justify-between gap-3">
-                  <span>Sous-total</span>
-                  <span className="text-foreground">
-                    {formatFcfa(cartLines.reduce((s, l) => s + l.subtotal, 0))}
-                  </span>
-                </div>
-                {cartLines.some((l) => l.discount > 0) && (
-                  <div className="flex justify-between gap-3">
-                    <span>Remises</span>
-                    <span className="text-destructive">
-                      − {formatFcfa(cartLines.reduce((s, l) => s + l.discount, 0))}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
-              <span className="text-sm font-medium text-muted-foreground">Total</span>
-              <span className="font-figures text-2xl font-bold tracking-tight">
-                {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
-              </span>
-            </div>
-            <Button
-              className="h-12 w-full text-base font-semibold"
-              onClick={handleSubmit}
-              disabled={cartLines.length === 0 || submitting}
-            >
-              {submitting ? "Enregistrement…" : "Encaisser"}
-            </Button>
-          </div>
-        </div>
+        {cartBody}
       </aside>
+
+      {mainTab === "caisse" && (
+        <button
+          type="button"
+          onClick={() => setCartSheetOpen(true)}
+          className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-border bg-card px-4 py-3 pb-safe text-left shadow-[0_-8px_30px_rgba(0,0,0,0.08)] lg:hidden"
+        >
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+              Ticket
+            </p>
+            <p className="mt-0.5 text-sm font-bold tracking-tight">
+              {cartLines.length === 0
+                ? "Vide — touchez un produit"
+                : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="font-figures text-lg font-bold tracking-tight">
+              {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
+            </span>
+            <ChevronUp className="size-4 text-muted-foreground" />
+          </div>
+        </button>
+      )}
+
+      <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>
+        <SheetContent side="bottom" className="flex !h-[85dvh] flex-col gap-0 lg:hidden">
+          <SheetHeader className="flex-row items-center justify-between gap-3 border-b border-border">
+            <div>
+              <SheetTitle className="text-base font-bold tracking-tight">Ticket</SheetTitle>
+              <SheetDescription>
+                {cartLines.length === 0
+                  ? "Vide — touchez un produit"
+                  : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
+              </SheetDescription>
+            </div>
+            {cartLines.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCart([])}
+                className="min-h-11 shrink-0 px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+              >
+                Vider
+              </button>
+            )}
+          </SheetHeader>
+          {cartBody}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!selectedTicket} onOpenChange={(open) => !open && setSelectedTicket(null)}>
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">

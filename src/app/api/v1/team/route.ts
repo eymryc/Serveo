@@ -14,7 +14,14 @@ export async function GET() {
 
     const db = getDb();
     const members = await db
-      .select({ id: users.id, name: users.name, email: users.email, role: users.role, createdAt: users.createdAt })
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        role: users.role,
+        createdAt: users.createdAt,
+      })
       .from(users)
       .where(eq(users.organizationId, organizationId))
       .orderBy(users.createdAt);
@@ -25,26 +32,33 @@ export async function GET() {
   }
 }
 
-// Le gerant cree directement le compte du barman (email + mot de passe
+// Le gerant cree directement le compte du barman (telephone + mot de passe
 // temporaire + role) — pas de flux d'invitation par email.
 export async function POST(req: NextRequest) {
   try {
     const { organizationId, orgRole } = await requireTenant();
     requireAdmin(orgRole);
     const body = createTeamMemberSchema.parse(await req.json());
-    const email = body.email.trim().toLowerCase();
+    const phone = body.phone.trim();
 
     const db = getDb();
-    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone));
     if (existing) {
-      throw new HttpError(409, "Un compte existe deja avec cet email");
+      throw new HttpError(409, "Un compte existe deja avec ce numero de telephone");
     }
 
     const passwordHash = await hashPassword(body.password);
     const [member] = await db
       .insert(users)
-      .values({ name: body.name, email, passwordHash, organizationId, role: body.role })
-      .returning({ id: users.id, name: users.name, email: users.email, role: users.role, createdAt: users.createdAt });
+      .values({ firstName: body.firstName, lastName: body.lastName, phone, passwordHash, organizationId, role: body.role })
+      .returning({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        role: users.role,
+        createdAt: users.createdAt,
+      });
 
     return NextResponse.json({ member }, { status: 201 });
   } catch (error) {

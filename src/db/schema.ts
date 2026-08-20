@@ -19,24 +19,6 @@ export const paymentMethodValues = [
   "credit_client",
 ] as const;
 
-// Unite dans laquelle l'article est vendu et compte en stock.
-export const unitLabelValues = [
-  "bouteille",
-  "canette",
-  "sachet",
-  "verre",
-  "bidon",
-] as const;
-
-// Format dans lequel le bar achete chez le fournisseur (optionnel).
-export const packageLabelValues = [
-  "casier",
-  "carton",
-  "pack",
-  "caisse",
-  "fut",
-] as const;
-
 // Un tenant = un bar/buvette.
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -59,15 +41,16 @@ export const organizations = pgTable("organizations", {
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "member"]);
 
-// Un utilisateur appartient a exactement un bar (pas de multi-org comme
-// pouvait le permettre Clerk) — organizationId est null jusqu'a ce que le
-// compte cree son bar (POST /api/v1/organization) ou soit rattache par un
-// gerant via la page Equipe.
+// Un utilisateur appartient a exactement un bar (pas de multi-org) —
+// organizationId est null jusqu'a ce que le compte cree son bar
+// (POST /api/v1/organization) ou soit rattache par un gerant via la page
+// Equipe.
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
+  phone: text("phone").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  name: text("name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
   role: userRoleEnum("role").notNull().default("member"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -118,6 +101,26 @@ export const expenseCategories = pgTable("expense_categories", {
   name: text("name").notNull(),
 }, (t) => [index("expense_categories_org_idx").on(t.organizationId)]);
 
+// Unites de vente/stock (bouteille, canette...) — parametrables par bar,
+// meme logique que les categories : liste geree en Parametres, pas figee
+// dans le code.
+export const unitLabels = pgTable("unit_labels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+}, (t) => [index("unit_labels_org_idx").on(t.organizationId)]);
+
+// Formats d'achat fournisseur (casier, carton...) — meme logique.
+export const packageLabels = pgTable("package_labels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+}, (t) => [index("package_labels_org_idx").on(t.organizationId)]);
+
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -129,9 +132,10 @@ export const products = pgTable("products", {
   purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }).notNull().default("0"),
   // Le stock est TOUJOURS compte et vendu a l'unite (ex: la bouteille) —
   // c'est le format d'achat fournisseur qui varie. unitLabel nomme cette
-  // unite (cf. unitLabelValues) ; packageLabel + unitsPerPackage
-  // decrivent le colis d'appro (cf. packageLabelValues, ex. casier de 24)
-  // pour convertir automatiquement les receptions de stock en unites.
+  // unite (liste geree par bar, cf. table unit_labels) ; packageLabel +
+  // unitsPerPackage decrivent le colis d'appro (cf. table package_labels,
+  // ex. casier de 24) pour convertir automatiquement les receptions de
+  // stock en unites.
   unitLabel: text("unit_label").notNull().default("bouteille"),
   packageLabel: text("package_label"),
   unitsPerPackage: integer("units_per_package"),

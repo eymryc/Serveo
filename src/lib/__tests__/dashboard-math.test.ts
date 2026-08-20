@@ -5,9 +5,14 @@ import {
   computeGoalProgressPct,
   computeMarginPct,
   computeNetProfit,
+  computeProductProfit,
+  fillTimeSeries,
   granularityFor,
+  granularityForRange,
+  generateTimeSeriesBuckets,
   previousPeriod,
   resolvePeriod,
+  resolvePeriodSelection,
   withPercentages,
 } from "@/lib/dashboard-math";
 
@@ -26,6 +31,12 @@ describe("withPercentages", () => {
     const rows = [{ category: "Bieres", amount: 0 }];
     const result = withPercentages(rows, 0);
     expect(result[0].percentage).toBe(0);
+  });
+});
+
+describe("computeProductProfit", () => {
+  it("subtracts purchase cost from net revenue per product", () => {
+    expect(computeProductProfit(11700, 9000)).toBe(2700);
   });
 });
 
@@ -102,6 +113,61 @@ describe("resolvePeriod", () => {
   it("'year' starts on January 1st", () => {
     const { from } = resolvePeriod("year", new Date(2026, 7, 20));
     expect(from).toEqual(new Date(2026, 0, 1, 0, 0, 0, 0));
+  });
+});
+
+describe("resolvePeriodSelection", () => {
+  it("uses custom from/to dates when preset is custom", () => {
+    const { from, to, key, granularity } = resolvePeriodSelection({
+      preset: "custom",
+      customFrom: "2026-08-01",
+      customTo: "2026-08-15",
+    });
+    expect(key).toBe("custom");
+    expect(from).toEqual(new Date(2026, 7, 1, 0, 0, 0, 0));
+    expect(to).toEqual(new Date(2026, 7, 15, 23, 59, 59, 999));
+    expect(granularity).toBe("day");
+  });
+
+  it("swaps inverted custom dates", () => {
+    const { from, to } = resolvePeriodSelection({
+      preset: "custom",
+      customFrom: "2026-08-20",
+      customTo: "2026-08-01",
+    });
+    expect(from).toEqual(new Date(2026, 7, 1, 0, 0, 0, 0));
+    expect(to).toEqual(new Date(2026, 7, 20, 23, 59, 59, 999));
+  });
+});
+
+describe("granularityForRange", () => {
+  it("uses hour buckets for a single day", () => {
+    const from = new Date(2026, 7, 1);
+    const to = new Date(2026, 7, 1, 23, 59, 59, 999);
+    expect(granularityForRange(from, to)).toBe("hour");
+  });
+
+  it("uses month buckets beyond three months", () => {
+    const from = new Date(2026, 0, 1);
+    const to = new Date(2026, 11, 31);
+    expect(granularityForRange(from, to)).toBe("month");
+  });
+});
+
+describe("fillTimeSeries", () => {
+  it("fills missing buckets with zero for a complete curve", () => {
+    const from = new Date(2026, 7, 17);
+    const to = new Date(2026, 7, 19, 23, 59, 59, 999);
+    const filled = fillTimeSeries(
+      [{ bucket: new Date(2026, 7, 19).toISOString(), net: 1350 }],
+      from,
+      to,
+      "day"
+    );
+    expect(filled).toHaveLength(3);
+    expect(filled[0].net).toBe(0);
+    expect(filled[1].net).toBe(0);
+    expect(filled[2].net).toBe(1350);
   });
 });
 

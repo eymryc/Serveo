@@ -5,15 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/password-input";
+import { PhoneInput } from "@/components/phone-input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LogoMark } from "@/components/logo-mark";
 
 export function CustomSignInForm() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +24,10 @@ export function CustomSignInForm() {
     setLoading(true);
     setError(null);
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    const result = await signIn("credentials", { phone, password, redirect: false });
 
     if (result?.error) {
-      setError("Email ou mot de passe incorrect");
+      setError("Numero de telephone ou mot de passe incorrect");
       setLoading(false);
       return;
     }
@@ -40,16 +41,23 @@ export function CustomSignInForm() {
       <div className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm">
         <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
 
+        <div className="flex justify-center pb-2">
+          <LogoMark
+            size="xl"
+            priority
+            className="h-14 w-auto object-contain object-center sm:h-16"
+          />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
+            <Label htmlFor="phone">Numero de telephone</Label>
+            <PhoneInput
+              id="phone"
+              autoComplete="tel"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={phone}
+              onChange={setPhone}
             />
           </div>
           <div className="space-y-1.5">

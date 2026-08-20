@@ -8,14 +8,17 @@ import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/password-input";
+import { PhoneInput } from "@/components/phone-input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LogoMark } from "@/components/logo-mark";
 
 export function CustomSignUpForm() {
   const router = useRouter();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +37,7 @@ export function CustomSignUpForm() {
     try {
       await apiFetch("/api/v1/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ firstName, lastName, phone, password }),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur d'inscription");
@@ -42,7 +45,7 @@ export function CustomSignUpForm() {
       return;
     }
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    const result = await signIn("credentials", { phone, password, redirect: false });
     if (result?.error) {
       setError("Compte cree, mais la connexion automatique a echoue — reessayez de vous connecter.");
       setLoading(false);
@@ -58,26 +61,45 @@ export function CustomSignUpForm() {
       <div className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm">
         <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
 
+        <div className="flex justify-center pb-2">
+          <LogoMark
+            size="xl"
+            priority
+            className="h-14 w-auto object-contain object-center sm:h-16"
+          />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="name">Nom</Label>
-            <Input
-              id="name"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="firstName">Prenom</Label>
+              <Input
+                id="firstName"
+                autoComplete="given-name"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lastName">Nom</Label>
+              <Input
+                id="lastName"
+                autoComplete="family-name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="signup-email">Email</Label>
-            <Input
-              id="signup-email"
-              type="email"
-              autoComplete="email"
+            <Label htmlFor="signup-phone">Numero de telephone</Label>
+            <PhoneInput
+              id="signup-phone"
+              autoComplete="tel"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={phone}
+              onChange={setPhone}
             />
           </div>
           <div className="space-y-1.5">

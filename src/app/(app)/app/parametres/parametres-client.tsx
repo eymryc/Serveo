@@ -51,7 +51,7 @@ export default function ParametresPage() {
 
   if (!org) {
     return (
-      <div className="max-w-3xl space-y-4">
+      <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-11 w-full" />
         <Skeleton className="h-40 w-full" />
@@ -60,7 +60,7 @@ export default function ParametresPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Parametres"
         description="Identite · categories · paiements"
@@ -75,6 +75,7 @@ export default function ParametresPage() {
             [
               ["general", "General"],
               ["categories", "Categories"],
+              ["unites", "Unités"],
               ["paiements", "Paiements"],
             ] as const
           ).map(([value, label]) => (
@@ -133,7 +134,7 @@ export default function ParametresPage() {
                       onChange={(e) => setOrg({ ...org, monthlyRevenueTarget: e.target.value })}
                     />
                   </Field>
-                  <Field label="Seuil d'alerte stock (unites)">
+                  <Field label="Seuil d'alerte stock (unités)">
                     <Input
                       type="number"
                       min={0}
@@ -164,6 +165,24 @@ export default function ParametresPage() {
               bordered
             >
               <CategoryManager apiPath="/api/v1/expense-categories" placeholder="Ex: Assurance" />
+            </SectionBlock>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="unites" className="mt-0 outline-none">
+          <div className="border border-t-0 border-border bg-card">
+            <SectionBlock
+              title="Unité de vente et de stock"
+              description="Utilisees dans le formulaire Articles pour compter et vendre vos produits."
+            >
+              <CategoryManager apiPath="/api/v1/unit-labels" placeholder="Ex: Carafe" />
+            </SectionBlock>
+            <SectionBlock
+              title="Format d'achat fournisseur"
+              description="Utilises au moment de choisir comment vous achetez un article (colis)."
+              bordered
+            >
+              <CategoryManager apiPath="/api/v1/package-labels" placeholder="Ex: Palette" />
             </SectionBlock>
           </div>
         </TabsContent>

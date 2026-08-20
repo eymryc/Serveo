@@ -83,13 +83,21 @@ export type Organization = {
 
 export type TeamMember = {
   id: string;
-  name: string;
-  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   role: "admin" | "member";
   createdAt: string;
 };
 
-export type PeriodKey = "today" | "week" | "month" | "year";
+export type PeriodPreset = "today" | "week" | "month" | "year";
+export type PeriodKey = PeriodPreset | "custom";
+
+export type PeriodSelection = {
+  preset: PeriodKey;
+  customFrom?: string;
+  customTo?: string;
+};
 
 // Vue reduite renvoyee au barman : uniquement le stock, pas les chiffres
 // financiers (cf. audit sur la separation des roles).
@@ -109,7 +117,15 @@ export type FullDashboardData = {
   expenses: { total: number; byCategory: { category: string; amount: number; percentage: number }[] };
   revenueByCategory: { category: string; amount: number; percentage: number }[];
   paymentMethodBreakdown: { method: string; amount: number; percentage: number }[];
-  topProducts: { productId: string; name: string; quantity: number; amount: number }[];
+  topProducts: {
+    productId: string;
+    name: string;
+    quantity: number;
+    amount: number;
+    cogs: number;
+    profit: number;
+    marginPct: number | null;
+  }[];
   result: { netProfit: number; marginPct: number | null; goalProgressPct: number | null; monthlyRevenueTarget: number | null };
   stock: { totalValue: number; activeProductsCount: number; alerts: Product[]; alertsCount: number };
 };
@@ -126,19 +142,3 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 export const ALL_PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS);
-
-export const UNIT_LABEL_OPTIONS = [
-  { value: "bouteille", label: "Bouteille" },
-  { value: "canette", label: "Canette" },
-  { value: "sachet", label: "Sachet" },
-  { value: "verre", label: "Verre" },
-  { value: "bidon", label: "Bidon" },
-] as const;
-
-export const PACKAGE_LABEL_OPTIONS = [
-  { value: "casier", label: "Casier" },
-  { value: "carton", label: "Carton" },
-  { value: "pack", label: "Pack" },
-  { value: "caisse", label: "Caisse" },
-  { value: "fut", label: "Fut" },
-] as const;
