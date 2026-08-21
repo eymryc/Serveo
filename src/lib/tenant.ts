@@ -1,5 +1,8 @@
 import "server-only";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { getDb } from "@/db";
+import { organizations } from "@/db/schema";
 import { HttpError } from "@/lib/http-errors";
 
 export { errorResponse as tenantErrorResponse } from "@/lib/http-errors";
@@ -27,6 +30,16 @@ export async function requireTenant() {
     throw new HttpError(403, "Aucune organisation active — rejoignez ou creez un bar");
   }
 
+  const db = getDb();
+  const [org] = await db
+    .select({ isActive: organizations.isActive })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+  if (!org || org.isActive !== 1) {
+    throw new HttpError(403, "Ce bar est desactive");
+  }
+
   return { userId, organizationId: orgId, orgRole };
 }
 
@@ -34,4 +47,16 @@ export function requireAdmin(orgRole: string | null | undefined) {
   if (orgRole !== "org:admin") {
     throw new HttpError(403, "Reserve au gerant");
   }
+}
+
+// Super-admin plateforme (back-office /admin) — orthogonal au role gérant.
+export async function requirePlatformAdmin() {
+  const { userId, isPlatformAdmin } = await auth();
+  if (!userId) {
+    throw new HttpError(401, "Authentification requise");
+  }
+  if (!isPlatformAdmin) {
+    throw new HttpError(403, "Reserve a l'administration plateforme");
+  }
+  return { userId };
 }

@@ -36,6 +36,8 @@ export const organizations = pgTable("organizations", {
     .notNull()
     .default(sql`ARRAY['especes','orange_money','mtn_momo','wave','carte_virement','credit_client']::text[]`),
   paystackCustomerCode: text("paystack_customer_code"),
+  // Soft-disable par le super-admin plateforme (le bar reste en base).
+  isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -53,6 +55,10 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
   role: userRoleEnum("role").notNull().default("member"),
+  // Super-admin plateforme (back-office /admin) — orthogonal au role gérant/barman.
+  isPlatformAdmin: integer("is_platform_admin").notNull().default(0),
+  // Soft-disable compte (refus de connexion).
+  isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("users_org_idx").on(t.organizationId)]);
 

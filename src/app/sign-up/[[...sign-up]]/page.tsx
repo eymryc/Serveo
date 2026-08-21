@@ -4,9 +4,10 @@ import { AuthShell } from "@/components/auth-shell";
 import { CustomSignUpForm } from "@/components/custom-sign-up-form";
 
 export default async function Page() {
-  const { userId, orgId } = await auth();
+  const { userId, orgId, isPlatformAdmin } = await auth();
 
   if (userId && orgId) redirect("/app");
+  if (userId && isPlatformAdmin) redirect("/admin");
   if (userId && !orgId) redirect("/onboarding");
 
   return (

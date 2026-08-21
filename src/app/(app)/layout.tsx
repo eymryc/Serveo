@@ -42,13 +42,13 @@ const NAV_GROUPS: { label: string; items: (NavItem & { adminOnly: boolean })[] }
 // route sensible). Un barman qui devine l'URL /app/charges se heurte a un
 // 403 serveur, pas juste a un lien cache.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { userId, userName, orgId, orgRole } = await auth();
+  const { userId, userName, orgId, orgRole, isPlatformAdmin } = await auth();
 
   if (!userId) {
     redirect("/sign-in");
   }
   if (!orgId) {
-    redirect("/onboarding");
+    redirect(isPlatformAdmin ? "/admin" : "/onboarding");
   }
 
   const db = getDb();
@@ -64,6 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AppShell
       navGroups={visibleGroups}
       isAdmin={isAdmin}
+      isPlatformAdmin={isPlatformAdmin}
       userName={userName ?? "Compte"}
       orgName={organization?.name ?? "Mon bar"}
     >

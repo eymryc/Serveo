@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type MovementType = "entry" | "adjustment";
 type MovementLine = { productId: string; quantity: number; unit: "unit" | "package" };
@@ -226,23 +227,21 @@ function NouveauMouvementForm() {
                     className="space-y-1.5 border border-border bg-background p-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <Select
+                      <SearchableSelect
                         value={line.productId}
                         onValueChange={(v) => updateLine(index, { productId: v, unit: "unit" })}
-                      >
-                        <SelectTrigger className="order-1 min-w-0 flex-1 basis-40">
-                          <SelectValue placeholder="Choisir un article" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products
-                            .filter((p) => p.id === line.productId || !usedProductIds.has(p.id))
-                            .map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        options={products
+                          .filter((p) => p.id === line.productId || !usedProductIds.has(p.id))
+                          .map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                            description: `Stock ${p.currentStock} ${p.unitLabel}(s)`,
+                          }))}
+                        placeholder="Choisir un article"
+                        searchPlaceholder="Rechercher un article…"
+                        emptyText="Aucun article trouve"
+                        className="order-1 min-w-0 flex-1 basis-40"
+                      />
 
                       <Input
                         type="number"

@@ -10,9 +10,10 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 export default async function LandingPage() {
-  const { userId, orgId } = await auth();
+  const { userId, orgId, isPlatformAdmin } = await auth();
 
   if (userId && orgId) redirect("/app");
+  if (userId && isPlatformAdmin) redirect("/admin");
   if (userId && !orgId) redirect("/onboarding");
 
   return (

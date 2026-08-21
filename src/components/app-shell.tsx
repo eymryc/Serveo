@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoMark } from "@/components/logo-mark";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -94,12 +95,14 @@ function NavLinks({
 export function AppShell({
   navGroups,
   isAdmin,
+  isPlatformAdmin = false,
   userName,
   orgName,
   children,
 }: {
   navGroups: NavGroup[];
   isAdmin: boolean;
+  isPlatformAdmin?: boolean;
   userName: string;
   orgName: string;
   children: React.ReactNode;
@@ -127,13 +130,14 @@ export function AppShell({
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <ThemeToggle />
-              <UserMenu userName={userName} />
+              <UserMenu userName={userName} isPlatformAdmin={isPlatformAdmin} />
             </div>
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <ImpersonationBanner />
         {/* Top bar — mobile chrome + desktop utilities */}
         <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background/90 px-4 pt-safe backdrop-blur-md md:min-h-16 md:px-8">
           <div className="flex items-center gap-2 md:hidden">
@@ -161,7 +165,7 @@ export function AppShell({
                       <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
                     </div>
-                    <UserMenu userName={userName} />
+                    <UserMenu userName={userName} isPlatformAdmin={isPlatformAdmin} />
                   </div>
                 </div>
               </SheetContent>
@@ -178,7 +182,7 @@ export function AppShell({
               <ThemeToggle />
             </div>
             <div className="md:hidden">
-              <UserMenu userName={userName} />
+              <UserMenu userName={userName} isPlatformAdmin={isPlatformAdmin} />
             </div>
           </div>
         </header>

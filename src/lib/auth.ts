@@ -16,6 +16,7 @@ async function loadUserById(userId: string) {
 
 declare module "next-auth" {
   interface Session {
+    impersonating?: boolean;
     user: {
       id: string;
       phone: string;
@@ -23,6 +24,7 @@ declare module "next-auth" {
       lastName: string;
       organizationId: string | null;
       role: "admin" | "member";
+      isPlatformAdmin: boolean;
     };
   }
 }
@@ -43,7 +45,7 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
 
         const db = getDb();
         const [user] = await db.select().from(users).where(eq(users.phone, phone));
-        if (!user) return null;
+        if (!user || user.isActive !== 1) return null;
 
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) return null;
@@ -53,37 +55,72 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.sub = user.id;
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.sub = user.id;
+        delete token.impersonatorId;
+      }
+
+      // Impersonation : update({ impersonateUserId }) / update({ stopImpersonating: true })
+      if (trigger === "update" && session && typeof session === "object") {
+        const payload = session as {
+          impersonateUserId?: string;
+          stopImpersonating?: boolean;
+        };
+
+        const impersonatorId =
+          typeof token.impersonatorId === "string" ? token.impersonatorId : undefined;
+
+        if (payload.stopImpersonating && impersonatorId) {
+          token.sub = impersonatorId;
+          delete token.impersonatorId;
+          return token;
+        }
+
+        if (payload.impersonateUserId) {
+          const actorId = impersonatorId ?? (typeof token.sub === "string" ? token.sub : null);
+          if (!actorId) return token;
+
+          const actor = await loadUserById(actorId);
+          if (!actor || actor.isPlatformAdmin !== 1 || actor.isActive !== 1) return token;
+
+          const target = await loadUserById(payload.impersonateUserId);
+          if (!target || target.isActive !== 1) return token;
+          if (target.id === actorId) return token;
+
+          token.impersonatorId = actorId;
+          token.sub = target.id;
+        }
+      }
+
       return token;
     },
     // Relit l'utilisateur en DB a chaque appel plutot que de faire confiance
     // au JWT — evite toute desynchronisation quand l'org/le role viennent
     // d'etre modifies mais le token cote client n'est pas encore a jour.
-    // auth() est deja memoize par requete par NextAuth, donc ca reste une
-    // seule requete DB par navigation.
     async session({ session, token }) {
-      if (!token.sub) return session;
+      if (!token.sub || typeof token.sub !== "string") return session;
 
       const user = await loadUserById(token.sub);
-      if (!user) return session;
+      if (!user || user.isActive !== 1) return session;
 
+      const impersonating = typeof token.impersonatorId === "string";
+
+      session.impersonating = impersonating;
       session.user.id = user.id;
       session.user.phone = user.phone;
       session.user.firstName = user.firstName;
       session.user.lastName = user.lastName;
       session.user.organizationId = user.organizationId;
       session.user.role = user.role;
+      // Pendant l'impersonation, on se comporte comme le compte cible (pas super-admin).
+      session.user.isPlatformAdmin = !impersonating && user.isPlatformAdmin === 1;
       return session;
     },
   },
   secret: process.env.AUTH_SECRET,
 });
 
-// Le client mobile ne peut pas s'appuyer sur le cookie de session NextAuth
-// comme le web : il envoie un Bearer token autonome (cf. lib/mobile-token.ts
-// et POST /api/v1/auth/login) verifie ici en priorite. Sans en-tete
-// Authorization (cas du web), on retombe sur la session NextAuth normale.
 async function authFromBearerToken() {
   const authHeader = (await headers()).get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
@@ -92,18 +129,18 @@ async function authFromBearerToken() {
   if (!userId) return null;
 
   const user = await loadUserById(userId);
-  if (!user) return null;
+  if (!user || user.isActive !== 1) return null;
 
   return {
     userId: user.id,
     userName: `${user.firstName} ${user.lastName}`.trim(),
     orgId: user.organizationId,
     orgRole: user.organizationId ? (user.role === "admin" ? ("org:admin" as const) : ("org:member" as const)) : null,
+    isPlatformAdmin: user.isPlatformAdmin === 1,
+    impersonating: false,
   };
 }
 
-// Forme de retour stable consommee par les pages/routes existantes
-// (userId/orgId/orgRole), independante du provider d'auth sous-jacent.
 export async function auth() {
   const bearer = await authFromBearerToken();
   if (bearer) return bearer;
@@ -116,5 +153,7 @@ export async function auth() {
     userName: u ? `${u.firstName} ${u.lastName}`.trim() : null,
     orgId: u?.organizationId ?? null,
     orgRole: u?.organizationId ? (u.role === "admin" ? ("org:admin" as const) : ("org:member" as const)) : null,
+    isPlatformAdmin: u?.isPlatformAdmin ?? false,
+    impersonating: session?.impersonating ?? false,
   };
 }

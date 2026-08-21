@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Identifiants invalides" }, { status: 401 });
     }
+    if (user.isActive !== 1) {
+      return NextResponse.json({ error: "Compte desactive" }, { status: 403 });
+    }
 
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
         lastName: user.lastName,
         organizationId: user.organizationId,
         role: user.role,
+        isPlatformAdmin: user.isPlatformAdmin === 1,
       },
     });
   } catch (error) {

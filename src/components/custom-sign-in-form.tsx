@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/password-input";
 import { PhoneInput } from "@/components/phone-input";
@@ -32,7 +32,15 @@ export function CustomSignInForm() {
       return;
     }
 
-    router.push("/onboarding");
+    const session = await getSession();
+    const user = session?.user;
+    if (user?.organizationId) {
+      router.push("/app");
+    } else if (user?.isPlatformAdmin) {
+      router.push("/admin");
+    } else {
+      router.push("/onboarding");
+    }
     router.refresh();
   }
 

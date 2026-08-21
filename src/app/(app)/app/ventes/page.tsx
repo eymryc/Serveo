@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronUp, Minus, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import { DEFAULT_PERIOD_SELECTION, resolvePeriodSelection } from "@/lib/dashboard-math";
-import { PAYMENT_METHOD_LABELS, type Category, type Organization, type PeriodKey, type PeriodSelection, type Product, type Sale } from "@/lib/types";
+import {
+  PAYMENT_METHOD_LABELS,
+  type Organization,
+  type PeriodKey,
+  type PeriodSelection,
+  type Product,
+  type Sale,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Sheet,
   SheetContent,
@@ -26,7 +35,6 @@ import {
 } from "@/components/data-table";
 import { PeriodSelector } from "@/components/dashboard/period-selector";
 
-const ALL_CATEGORIES = "all";
 const ALL_PAYMENTS = "all";
 
 type CartLine = { productId: string; quantity: number; discount: number };
@@ -41,6 +49,10 @@ type SaleGroup = {
   lineCount: number;
   unitCount: number;
 };
+
+function emptyLine(): CartLine {
+  return { productId: "", quantity: 1, discount: 0 };
+}
 
 function periodKpiLabels(period: PeriodKey) {
   switch (period) {
@@ -130,7 +142,6 @@ function groupContentLabel(group: SaleGroup, products: Product[]) {
 
 export default function VentesPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
     Object.keys(PAYMENT_METHOD_LABELS)
@@ -140,15 +151,13 @@ export default function VentesPage() {
   const [mainTab, setMainTab] = useState("caisse");
   const [historyPeriod, setHistoryPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
 
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [historySearch, setHistorySearch] = useState("");
   const [paymentFilter, setPaymentFilter] = useState(ALL_PAYMENTS);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<CartLine[]>([emptyLine()]);
   const [paymentMethod, setPaymentMethod] = useState("especes");
-  const [cartSheetOpen, setCartSheetOpen] = useState(false);
+  const [recapExpanded, setRecapExpanded] = useState(false);
 
   function loadProducts() {
     apiFetch<{ products: Product[] }>("/api/v1/products")
@@ -174,11 +183,12 @@ export default function VentesPage() {
 
   useEffect(() => {
     loadProducts();
-    apiFetch<{ categories: Category[] }>("/api/v1/categories").then((d) => setCategories(d.categories));
     apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
       setActivePaymentMethods(d.organization.activePaymentMethods);
       setPaymentMethod((prev) =>
-        d.organization.activePaymentMethods.includes(prev) ? prev : d.organization.activePaymentMethods[0]
+        d.organization.activePaymentMethods.includes(prev)
+          ? prev
+          : d.organization.activePaymentMethods[0]
       );
     });
   }, []);
@@ -191,37 +201,42 @@ export default function VentesPage() {
     setHistoryPage(1);
   }, [historySearch, paymentFilter, historyPageSize]);
 
-  const filteredProducts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return products.filter((p) => {
-      const matchesSearch = !q || p.name.toLowerCase().includes(q);
-      const matchesCategory =
-        categoryFilter === ALL_CATEGORIES ? true : p.categoryId === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, search, categoryFilter]);
+  function updateLine(index: number, patch: Partial<CartLine>) {
+    setCart((prev) =>
+      prev.map((l, i) => {
+        if (i !== index) return l;
+        const next = { ...l, ...patch };
+        if (patch.productId !== undefined || patch.quantity !== undefined) {
+          const product = products.find((p) => p.id === next.productId);
+          if (product) {
+            next.quantity = Math.min(Math.max(1, next.quantity), Math.max(1, product.currentStock));
+          }
+        }
+        return next;
+      })
+    );
+  }
 
-  const usedCategoryIds = useMemo(
-    () => new Set(products.map((p) => p.categoryId).filter((id): id is string => !!id)),
-    [products]
-  );
-  const visibleCategories = categories.filter((c) => usedCategoryIds.has(c.id));
+  function addLine() {
+    setCart((prev) => [...prev, emptyLine()]);
+  }
 
-  const cartQtyByProduct = useMemo(
-    () => new Map(cart.map((l) => [l.productId, l.quantity])),
-    [cart]
-  );
+  function removeLine(index: number) {
+    setCart((prev) => (prev.length === 1 ? [emptyLine()] : prev.filter((_, i) => i !== index)));
+  }
+
+  const usedProductIds = new Set(cart.map((l) => l.productId).filter(Boolean));
 
   const cartLines = useMemo(
     () =>
       cart
-        .map((line) => {
+        .map((line, index) => {
           const product = products.find((p) => p.id === line.productId);
-          if (!product) return null;
+          if (!product || line.quantity <= 0) return null;
           const unitPrice = Number(product.unitPrice);
           const subtotal = unitPrice * line.quantity;
           const lineTotal = Math.max(0, subtotal - line.discount);
-          return { ...line, product, unitPrice, subtotal, lineTotal };
+          return { ...line, index, product, unitPrice, subtotal, lineTotal };
         })
         .filter((l): l is NonNullable<typeof l> => l !== null),
     [cart, products]
@@ -273,46 +288,11 @@ export default function VentesPage() {
 
   const historyKpis = periodKpiLabels(historyPeriod.preset);
 
-  function addToCart(product: Product) {
-    setCart((prev) => {
-      const existing = prev.find((l) => l.productId === product.id);
-      if (existing) {
-        return prev.map((l) =>
-          l.productId === product.id
-            ? { ...l, quantity: Math.min(product.currentStock, l.quantity + 1) }
-            : l
-        );
-      }
-      return [...prev, { productId: product.id, quantity: 1, discount: 0 }];
-    });
-  }
-
-  function updateQuantity(productId: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((l) => {
-          if (l.productId !== productId) return l;
-          const product = products.find((p) => p.id === productId);
-          const maxQty = product?.currentStock ?? l.quantity;
-          const nextQty = Math.min(maxQty, l.quantity + delta);
-          return { ...l, quantity: nextQty };
-        })
-        .filter((l) => l.quantity > 0)
-    );
-  }
-
-  function updateDiscount(productId: string, discount: number) {
-    setCart((prev) =>
-      prev.map((l) => (l.productId === productId ? { ...l, discount: Math.max(0, discount) } : l))
-    );
-  }
-
-  function removeFromCart(productId: string) {
-    setCart((prev) => prev.filter((l) => l.productId !== productId));
-  }
-
   async function handleSubmit() {
-    if (cartLines.length === 0) return;
+    if (cartLines.length === 0) {
+      toast.error("Ajoutez au moins un article");
+      return;
+    }
 
     const batchId = crypto.randomUUID();
     setSubmitting(true);
@@ -331,165 +311,31 @@ export default function VentesPage() {
             }),
           });
         } catch {
-          failedLines.push({ productId: line.product.id, quantity: line.quantity, discount: line.discount });
+          failedLines.push({
+            productId: line.product.id,
+            quantity: line.quantity,
+            discount: line.discount,
+          });
         }
       }
 
       const succeeded = cartLines.length - failedLines.length;
       if (failedLines.length === 0) {
         toast.success(`Facture enregistree — ${formatFcfa(grandTotal)}`);
+        setCart([emptyLine()]);
       } else if (succeeded > 0) {
-        toast.warning(`${succeeded}/${cartLines.length} article(s) enregistres, ${failedLines.length} en erreur`);
+        toast.warning(
+          `${succeeded}/${cartLines.length} article(s) enregistres, ${failedLines.length} en erreur`
+        );
+        setCart(failedLines.length > 0 ? failedLines : [emptyLine()]);
       } else {
         toast.error("Echec de l'enregistrement — verifiez la connexion et reessayez");
       }
-      setCart(failedLines);
-      if (failedLines.length === 0) setCartSheetOpen(false);
       loadAll();
     } finally {
       setSubmitting(false);
     }
   }
-
-  const cartBody = (
-    <>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {cartLines.length === 0 ? (
-          <div className="flex h-full min-h-[6rem] items-center justify-center px-6 text-center">
-            <p className="text-sm text-muted-foreground">Le ticket apparait ici.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-dashed divide-border">
-            {cartLines.map((line) => (
-              <li key={line.productId} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold leading-snug">{line.product.name}</p>
-                    <p className="font-figures mt-0.5 text-[11px] text-muted-foreground">
-                      {formatFcfa(line.unitPrice)} × {line.quantity} {line.product.unitLabel}
-                      {line.quantity > 1 ? "(s)" : ""}
-                      {line.discount > 0 && (
-                        <span className="text-destructive"> − {formatFcfa(line.discount)}</span>
-                      )}
-                    </p>
-                  </div>
-                  <p className="font-figures shrink-0 text-sm font-bold tabular-nums">
-                    {formatFcfa(line.lineTotal)}
-                  </p>
-                </div>
-
-                <div className="mt-2.5 flex items-center gap-2">
-                  <div className="flex h-11 items-center border border-border bg-background">
-                    <button
-                      type="button"
-                      className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      onClick={() => updateQuantity(line.productId, -1)}
-                      aria-label="Diminuer"
-                    >
-                      <Minus className="size-3.5" />
-                    </button>
-                    <span className="font-figures w-8 text-center text-sm font-bold">{line.quantity}</span>
-                    <button
-                      type="button"
-                      className="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                      onClick={() => updateQuantity(line.productId, 1)}
-                      disabled={line.quantity >= line.product.currentStock}
-                      aria-label="Augmenter"
-                    >
-                      <Plus className="size-3.5" />
-                    </button>
-                  </div>
-
-                  <Input
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={line.discount || ""}
-                    onChange={(e) => updateDiscount(line.productId, Number(e.target.value))}
-                    placeholder="Remise"
-                    className="font-figures h-11 min-w-0 flex-1 px-2 text-right text-xs"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(line.productId)}
-                    className="flex size-11 shrink-0 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
-                    aria-label="Retirer"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-border bg-card">
-        {cartLines.length > 0 && (
-          <div className="space-y-2 border-b border-border px-4 py-3">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-              Paiement
-            </p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {activePaymentMethods.map((value) => {
-                const active = paymentMethod === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPaymentMethod(value)}
-                    className={cn(
-                      "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
-                      active
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                    )}
-                  >
-                    {PAYMENT_METHOD_LABELS[value] ?? value}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3 px-4 py-4">
-          {cartLines.length > 0 && (
-            <div className="font-figures space-y-1 text-xs text-muted-foreground">
-              <div className="flex justify-between gap-3">
-                <span>Sous-total</span>
-                <span className="text-foreground">
-                  {formatFcfa(cartLines.reduce((s, l) => s + l.subtotal, 0))}
-                </span>
-              </div>
-              {cartLines.some((l) => l.discount > 0) && (
-                <div className="flex justify-between gap-3">
-                  <span>Remises</span>
-                  <span className="text-destructive">
-                    − {formatFcfa(cartLines.reduce((s, l) => s + l.discount, 0))}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
-            <span className="text-sm font-medium text-muted-foreground">Total</span>
-            <span className="font-figures text-2xl font-bold tracking-tight">
-              {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
-            </span>
-          </div>
-          <Button
-            className="h-12 w-full text-base font-semibold"
-            onClick={handleSubmit}
-            disabled={cartLines.length === 0 || submitting}
-          >
-            {submitting ? "Enregistrement…" : "Encaisser"}
-          </Button>
-        </div>
-      </div>
-    </>
-  );
 
   return (
     <div className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top,0px))] bottom-0 z-10 flex bg-background md:inset-y-0 md:top-[calc(4rem+env(safe-area-inset-top,0px))] md:left-60">
@@ -528,83 +374,251 @@ export default function VentesPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="caisse" className="mt-0 flex min-h-0 flex-1 flex-col outline-none">
-            <div className="shrink-0 space-y-2 border-b border-border bg-card px-4 py-3 md:px-5">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Chercher une boisson, un plat…"
-                  className="h-10 border-border bg-background pl-9"
-                />
-              </div>
-              {visibleCategories.length > 0 && (
-                <div className="flex gap-1.5 overflow-x-auto scroll-touch scrollbar-none pb-0.5 [-ms-overflow-style:none]">
-                  <FilterChip
-                    active={categoryFilter === ALL_CATEGORIES}
-                    onClick={() => setCategoryFilter(ALL_CATEGORIES)}
-                  >
-                    Tout
-                  </FilterChip>
-                  {visibleCategories.map((c) => (
-                    <FilterChip
-                      key={c.id}
-                      active={categoryFilter === c.id}
-                      onClick={() => setCategoryFilter(c.id)}
-                    >
-                      {c.name}
-                    </FilterChip>
-                  ))}
+          <TabsContent
+            value="caisse"
+            className="mt-0 flex min-h-0 flex-1 flex-col outline-none lg:flex-row"
+          >
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(11rem+env(safe-area-inset-bottom,0px))] md:px-5 lg:pb-4">
+              <div className="space-y-3 border border-border bg-card p-4 md:p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Articles</Label>
+                  <span className="font-figures text-xs text-muted-foreground">
+                    {cartLines.length} ligne{cartLines.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
-              )}
+
+                <div className="space-y-2">
+                  {cart.map((line, index) => {
+                    const product = products.find((p) => p.id === line.productId);
+                    const unitPrice = product ? Number(product.unitPrice) : 0;
+                    const subtotal = product && line.quantity > 0 ? unitPrice * line.quantity : 0;
+                    const lineTotal = Math.max(0, subtotal - line.discount);
+                    const productOptions = products
+                      .filter((p) => p.id === line.productId || !usedProductIds.has(p.id))
+                      .map((p) => ({
+                        value: p.id,
+                        label: p.name,
+                        description:
+                          p.currentStock <= 0
+                            ? "Rupture de stock"
+                            : `Stock ${p.currentStock} · ${formatFcfa(Number(p.unitPrice))}`,
+                        disabled: p.currentStock <= 0 && p.id !== line.productId,
+                      }));
+                    return (
+                      <div
+                        key={index}
+                        className="space-y-1.5 border border-border bg-background p-2.5"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <SearchableSelect
+                            value={line.productId}
+                            onValueChange={(v) => updateLine(index, { productId: v })}
+                            options={productOptions}
+                            placeholder="Choisir un article"
+                            searchPlaceholder="Rechercher un article…"
+                            emptyText="Aucun article trouve"
+                            className="order-1 min-w-0 flex-1 basis-40"
+                          />
+
+                          <Input
+                            type="number"
+                            min={1}
+                            max={product?.currentStock ?? undefined}
+                            value={line.quantity}
+                            onChange={(e) =>
+                              updateLine(index, { quantity: Number(e.target.value) || 1 })
+                            }
+                            className="order-2 w-20 shrink-0"
+                            aria-label="Quantite"
+                          />
+
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeLine(index)}
+                            disabled={cart.length === 1 && !line.productId}
+                            aria-label="Retirer la ligne"
+                            className="order-3 shrink-0"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+
+                        {product && (
+                          <div className="flex flex-wrap items-center gap-2 px-0.5">
+                            <Input
+                              type="number"
+                              min={0}
+                              inputMode="numeric"
+                              value={line.discount || ""}
+                              onChange={(e) =>
+                                updateLine(index, {
+                                  discount: Math.max(0, Number(e.target.value) || 0),
+                                })
+                              }
+                              placeholder="Remise (FCFA)"
+                              className="font-figures h-8 max-w-[10rem] text-xs"
+                            />
+                            <p className="font-figures text-[11px] text-muted-foreground">
+                              {line.quantity} {product.unitLabel}
+                              {line.quantity > 1 ? "(s)" : ""} × {formatFcfa(unitPrice)}
+                              {line.discount > 0 && (
+                                <span className="text-destructive"> − {formatFcfa(line.discount)}</span>
+                              )}
+                              {" = "}
+                              <span className="font-semibold text-foreground">
+                                {formatFcfa(lineTotal)}
+                              </span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={addLine}>
+                  <Plus className="size-3.5" /> Ajouter un article
+                </Button>
+              </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto scroll-touch px-4 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:px-5 lg:pb-4">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-                {filteredProducts.map((p) => {
-                  const qtyInCart = cartQtyByProduct.get(p.id) ?? 0;
-                  const active = qtyInCart > 0;
-                  const outOfStock = p.currentStock <= qtyInCart;
-                  const lowStock = p.currentStock <= p.stockMinThreshold;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      disabled={outOfStock}
-                      onClick={() => addToCart(p)}
-                      className={cn(
-                        "relative flex min-h-16 flex-col gap-1 border bg-card px-2.5 py-2.5 text-left transition-colors active:bg-accent/30",
-                        "hover:border-primary/50 hover:bg-accent/20 disabled:pointer-events-none disabled:opacity-45",
-                        active
-                          ? "border-l-2 border-l-primary border-primary/30 bg-primary/5"
-                          : lowStock
-                            ? "border-l-2 border-l-destructive/70 border-border"
-                            : "border-border"
-                      )}
-                    >
-                      {active && (
-                        <span className="font-figures absolute -right-px -top-px flex size-4 items-center justify-center bg-primary text-[9px] font-bold text-primary-foreground">
-                          {qtyInCart}
-                        </span>
-                      )}
-                      <p className="line-clamp-2 pr-3 text-xs font-semibold leading-tight tracking-tight sm:text-[11px]">
-                        {p.name}
-                      </p>
-                      <p className="font-figures text-sm font-bold tracking-tight sm:text-xs">
-                        {formatFcfa(Number(p.unitPrice))}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {filteredProducts.length === 0 && (
-                <div className="flex h-40 items-center justify-center border border-dashed border-border">
-                  <p className="text-sm text-muted-foreground">Aucun article trouve.</p>
-                </div>
+            <aside
+              className={cn(
+                "flex w-full shrink-0 flex-col border border-border bg-card lg:w-[22rem] lg:border-y-0 lg:border-r-0 xl:w-[24rem]",
+                "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-20 max-lg:border-x-0 max-lg:border-b-0 max-lg:pb-safe max-lg:shadow-[0_-8px_30px_rgba(0,0,0,0.08)]",
+                recapExpanded && "max-lg:max-h-[min(70dvh,34rem)]",
+                "lg:sticky lg:top-0 lg:h-full lg:border-l"
               )}
-            </div>
+            >
+              <button
+                type="button"
+                onClick={() => setRecapExpanded((v) => !v)}
+                className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-3 text-left lg:pointer-events-none"
+              >
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                    Ticket
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold tracking-tight">
+                    {cartLines.length === 0
+                      ? "Vide — ajoutez un article"
+                      : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3 lg:hidden">
+                  <span className="font-figures text-lg font-bold tracking-tight">
+                    {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
+                  </span>
+                  {recapExpanded ? (
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronUp className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+              </button>
+
+              <div
+                className={cn(
+                  "min-h-0 flex-1 flex-col overflow-hidden",
+                  recapExpanded ? "flex" : "hidden lg:flex"
+                )}
+              >
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {cartLines.length === 0 ? (
+                    <div className="flex h-full min-h-[6rem] items-center justify-center px-6 text-center">
+                      <p className="text-sm text-muted-foreground">Le ticket apparait ici.</p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-dashed divide-border">
+                      {cartLines.map((line) => (
+                        <li key={line.productId} className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold leading-snug">
+                                {line.product.name}
+                              </p>
+                              <p className="font-figures mt-0.5 text-[11px] text-muted-foreground">
+                                {formatFcfa(line.unitPrice)} × {line.quantity} {line.product.unitLabel}
+                                {line.quantity > 1 ? "(s)" : ""}
+                                {line.discount > 0 && (
+                                  <span className="text-destructive">
+                                    {" "}
+                                    − {formatFcfa(line.discount)}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <p className="font-figures shrink-0 text-sm font-bold tabular-nums">
+                              {formatFcfa(line.lineTotal)}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="shrink-0 border-t border-border bg-card">
+                  {cartLines.length > 0 && (
+                    <div className="space-y-2 border-b border-border px-4 py-3">
+                      <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                        Paiement
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {activePaymentMethods.map((value) => {
+                          const active = paymentMethod === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setPaymentMethod(value)}
+                              className={cn(
+                                "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
+                                active
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              )}
+                            >
+                              {PAYMENT_METHOD_LABELS[value] ?? value}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 px-4 py-4">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-medium text-muted-foreground">Total</span>
+                      <span className="font-figures text-2xl font-bold tracking-tight">
+                        {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {cartLines.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="shrink-0"
+                          onClick={() => setCart([emptyLine()])}
+                        >
+                          Vider
+                        </Button>
+                      )}
+                      <Button
+                        className="h-12 flex-1 text-base font-semibold"
+                        onClick={handleSubmit}
+                        disabled={cartLines.length === 0 || submitting}
+                      >
+                        {submitting ? "Enregistrement…" : "Encaisser"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </TabsContent>
 
           <TabsContent value="historique" className="mt-0 flex min-h-0 flex-1 flex-col outline-none">
@@ -746,83 +760,6 @@ export default function VentesPage() {
         </Tabs>
       </section>
 
-      <aside className="hidden w-[22rem] shrink-0 flex-col border-l border-border bg-card lg:flex xl:w-[24rem]">
-        <header className="border-b border-border bg-primary/5 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                Ticket
-              </p>
-              <p className="mt-0.5 text-sm font-bold tracking-tight">
-                {cartLines.length === 0
-                  ? "Vide — touchez un produit"
-                  : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
-              </p>
-            </div>
-            {cartLines.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCart([])}
-                className="min-h-11 px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
-              >
-                Vider
-              </button>
-            )}
-          </div>
-        </header>
-        {cartBody}
-      </aside>
-
-      {mainTab === "caisse" && (
-        <button
-          type="button"
-          onClick={() => setCartSheetOpen(true)}
-          className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-border bg-card px-4 py-3 pb-safe text-left shadow-[0_-8px_30px_rgba(0,0,0,0.08)] lg:hidden"
-        >
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-              Ticket
-            </p>
-            <p className="mt-0.5 text-sm font-bold tracking-tight">
-              {cartLines.length === 0
-                ? "Vide — touchez un produit"
-                : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="font-figures text-lg font-bold tracking-tight">
-              {cartLines.length > 0 ? formatFcfa(grandTotal) : "—"}
-            </span>
-            <ChevronUp className="size-4 text-muted-foreground" />
-          </div>
-        </button>
-      )}
-
-      <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>
-        <SheetContent side="bottom" className="flex !h-[85dvh] flex-col gap-0 lg:hidden">
-          <SheetHeader className="flex-row items-center justify-between gap-3 border-b border-border">
-            <div>
-              <SheetTitle className="text-base font-bold tracking-tight">Ticket</SheetTitle>
-              <SheetDescription>
-                {cartLines.length === 0
-                  ? "Vide — touchez un produit"
-                  : `${cartUnitsLabel} · ${cartLines.length} ligne${cartLines.length > 1 ? "s" : ""}`}
-              </SheetDescription>
-            </div>
-            {cartLines.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCart([])}
-                className="min-h-11 shrink-0 px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
-              >
-                Vider
-              </button>
-            )}
-          </SheetHeader>
-          {cartBody}
-        </SheetContent>
-      </Sheet>
-
       <Sheet open={!!selectedTicket} onOpenChange={(open) => !open && setSelectedTicket(null)}>
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
           {selectedTicket && (
@@ -908,30 +845,5 @@ export default function VentesPage() {
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "shrink-0 min-h-10 border px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-      )}
-    >
-      {children}
-    </button>
   );
 }

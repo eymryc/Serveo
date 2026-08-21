@@ -121,3 +121,31 @@ export const createTeamMemberSchema = z.object({
 export const updateTeamMemberSchema = z.object({
   role: z.enum(teamRoleValues),
 });
+
+export const adminUpdateOrganizationSchema = z.object({
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
+  name: z.string().min(1).max(200).optional(),
+  city: z.string().max(200).optional().nullable(),
+});
+
+export const adminCreateUserSchema = z.object({
+  firstName: z.string().min(1).max(200),
+  lastName: z.string().min(1).max(200),
+  phone: phoneSchema,
+  password: z.string().min(8).max(200),
+  role: z.enum(teamRoleValues).default("member"),
+  organizationId: z.string().uuid().nullable().optional(),
+  isPlatformAdmin: z.coerce.number().int().min(0).max(1).optional(),
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
+});
+
+export const adminUpdateUserSchema = z.object({
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
+  isPlatformAdmin: z.coerce.number().int().min(0).max(1).optional(),
+  role: z.enum(teamRoleValues).optional(),
+  password: z.string().min(8).max(200).optional(),
+  firstName: z.string().min(1).max(200).optional(),
+  lastName: z.string().min(1).max(200).optional(),
+  phone: phoneSchema.optional(),
+  organizationId: z.string().uuid().nullable().optional(),
+});
