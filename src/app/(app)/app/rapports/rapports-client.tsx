@@ -77,6 +77,7 @@ export default function RapportsPageClient() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le rapport au montage et à chaque changement de période, pattern volontaire
     setLoading(true);
     setError(null);
     apiFetch<DashboardData>(`/api/v1/dashboard?${periodSelectionQuery(period)}`)

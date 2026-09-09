@@ -114,7 +114,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="size-11"
-            disabled={page <= 1}
+            disabled={page <= 1 || undefined}
             onClick={() => onPageChange(page - 1)}
           >
             <ChevronLeft className="size-4" />
@@ -128,7 +128,7 @@ export function TablePagination({
             variant="outline"
             size="icon"
             className="size-11"
-            disabled={page >= pageCount}
+            disabled={page >= pageCount || undefined}
             onClick={() => onPageChange(page + 1)}
           >
             <ChevronRight className="size-4" />

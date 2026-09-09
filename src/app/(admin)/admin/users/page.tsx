@@ -85,6 +85,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (!selected) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données au montage, pattern volontaire
     setEditFirstName(selected.firstName);
     setEditLastName(selected.lastName);
     setEditPhone(selected.phone);

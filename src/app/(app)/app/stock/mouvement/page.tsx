@@ -63,6 +63,8 @@ function NouveauMouvementForm() {
   const searchParams = useSearchParams();
   const movementType = resolveType(searchParams.get("type"));
   const isEntry = movementType === "entry";
+  const productIdParam = searchParams.get("productId");
+  const singleProductMode = !!productIdParam;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [movementDate, setMovementDate] = useState(todayIso());
@@ -74,6 +76,13 @@ function NouveauMouvementForm() {
   useEffect(() => {
     apiFetch<{ products: Product[] }>("/api/v1/products").then((d) => setProducts(d.products));
   }, []);
+
+  useEffect(() => {
+    if (!singleProductMode) return;
+    // Mode "classique" : une seule ligne, l'article est pré-sélectionné.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement d'une valeur dérivée de l'URL (pattern volontaire)
+    setLines([{ productId: productIdParam as string, quantity: 1, unit: "unit" }]);
+  }, [singleProductMode, productIdParam]);
 
   function updateLine(index: number, patch: Partial<MovementLine>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
@@ -227,21 +236,32 @@ function NouveauMouvementForm() {
                     className="space-y-1.5 border border-border bg-background p-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <SearchableSelect
-                        value={line.productId}
-                        onValueChange={(v) => updateLine(index, { productId: v, unit: "unit" })}
-                        options={products
-                          .filter((p) => p.id === line.productId || !usedProductIds.has(p.id))
-                          .map((p) => ({
-                            value: p.id,
-                            label: p.name,
-                            description: `Stock ${p.currentStock} ${p.unitLabel}(s)`,
-                          }))}
-                        placeholder="Choisir un article"
-                        searchPlaceholder="Rechercher un article…"
-                        emptyText="Aucun article trouve"
-                        className="order-1 min-w-0 flex-1 basis-40"
-                      />
+                      {!singleProductMode ? (
+                        <SearchableSelect
+                          value={line.productId}
+                          onValueChange={(v) => updateLine(index, { productId: v, unit: "unit" })}
+                          options={products
+                            .filter((p) => p.id === line.productId || !usedProductIds.has(p.id))
+                            .map((p) => ({
+                              value: p.id,
+                              label: p.name,
+                              description: `Stock ${p.currentStock} ${p.unitLabel}(s)`,
+                            }))}
+                          placeholder="Choisir un article"
+                          searchPlaceholder="Rechercher un article…"
+                          emptyText="Aucun article trouve"
+                          className="order-1 min-w-0 flex-1 basis-40"
+                        />
+                      ) : (
+                        <div className="order-1 min-w-0 flex-1 basis-40">
+                          <p className="truncate text-sm font-semibold">{product?.name ?? "—"}</p>
+                          {product && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              Stock actuel : {product.currentStock} {product.unitLabel}(s)
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       <Input
                         type="number"
@@ -252,17 +272,19 @@ function NouveauMouvementForm() {
                         aria-label="Quantite"
                       />
 
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeLine(index)}
-                        disabled={lines.length === 1 && !line.productId}
-                        aria-label="Retirer la ligne"
-                        className="order-3 shrink-0 sm:order-4"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {!singleProductMode && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeLine(index)}
+                          disabled={lines.length === 1 && !line.productId}
+                          aria-label="Retirer la ligne"
+                          className="order-3 shrink-0 sm:order-4"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
 
                       {hasPackage && (
                         <Select
@@ -299,9 +321,16 @@ function NouveauMouvementForm() {
               })}
             </div>
 
-            <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={addLine}>
-              <Plus className="size-3.5" /> Ajouter un article
-            </Button>
+            {!singleProductMode && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={addLine}
+              >
+                <Plus className="size-3.5" /> Ajouter un article
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">

@@ -53,6 +53,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recharge le dashboard au montage et à chaque changement de période, pattern volontaire
     setLoading(true);
     setError(null);
     apiFetch<DashboardData>(`/api/v1/dashboard?${periodSelectionQuery(period)}`)

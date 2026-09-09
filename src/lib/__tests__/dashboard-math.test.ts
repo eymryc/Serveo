@@ -10,7 +10,6 @@ import {
   fillTimeSeries,
   granularityFor,
   granularityForRange,
-  generateTimeSeriesBuckets,
   previousPeriod,
   resolvePeriod,
   resolvePeriodSelection,

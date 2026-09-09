@@ -245,6 +245,7 @@ export default function VentesPage() {
   }, [historyPeriod.preset, historyPeriod.customFrom, historyPeriod.customTo]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise la pagination quand les filtres changent, pattern volontaire
     setHistoryPage(1);
   }, [historySearch, paymentFilter, historyPageSize]);
 

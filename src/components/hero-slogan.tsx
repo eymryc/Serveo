@@ -19,6 +19,7 @@ export function HeroSlogan({ className }: { className?: string }) {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture d'API navigateur après hydratation pour éviter un mismatch SSR, pattern volontaire
     setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }, []);
 

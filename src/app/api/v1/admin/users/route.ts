@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       throw new HttpError(409, "Un compte existe deja avec ce numero de telephone");
     }
 
-    let organizationId: string | null = body.organizationId ?? null;
+    const organizationId: string | null = body.organizationId ?? null;
     if (organizationId) {
       const [org] = await db
         .select({ id: organizations.id, name: organizations.name })

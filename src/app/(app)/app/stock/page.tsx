@@ -7,7 +7,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   MoreHorizontal,
-  PackageCheck,
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -55,8 +54,6 @@ import {
   type SortDir,
 } from "@/components/data-table";
 
-const NO_CATEGORY = "none";
-const ALL_CATEGORIES = "all";
 const ALL_PRODUCTS = "all";
 const ALL_STATUS = "all";
 const ALL_TYPES = "all";
@@ -79,12 +76,66 @@ type MovementGroup = {
   reversed: boolean;
 };
 
-type ProductSortKey = "name" | "stock" | "threshold" | "status";
+type ProductSortKey = "name" | "initial" | "entries" | "exits" | "stock" | "status";
 type MovementSortKey = "date" | "type" | "article" | "qty";
 
-function stockBarRatio(current: number, threshold: number) {
-  const ceiling = Math.max(threshold * 2, 1);
-  return Math.min(100, Math.max(0, (current / ceiling) * 100));
+type ProductBalance = {
+  initial: number;
+  entries: number;
+  exits: number;
+};
+
+function emptyBalance(): ProductBalance {
+  return { initial: 0, entries: 0, exits: 0 };
+}
+
+/** Totaux actifs par article (lots annulés exclus). */
+function computeProductBalances(movements: StockMovementWithProduct[]) {
+  const reversedBatchIds = new Set(
+    movements.filter((m) => m.reversalOfBatchId).map((m) => m.reversalOfBatchId as string)
+  );
+  const byProduct = new Map<string, StockMovementWithProduct[]>();
+
+  for (const m of movements) {
+    if (m.reversalOfBatchId) continue;
+    if (m.batchId && reversedBatchIds.has(m.batchId)) continue;
+    const list = byProduct.get(m.productId) ?? [];
+    list.push(m);
+    byProduct.set(m.productId, list);
+  }
+
+  const map = new Map<string, ProductBalance>();
+  for (const [productId, list] of byProduct) {
+    const sorted = [...list].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    let initial = 0;
+    let entries = 0;
+    let exits = 0;
+
+    for (const m of sorted) {
+      if (m.type === "initial") initial += m.quantityDelta;
+      else if (m.type === "entry" || (m.type === "adjustment" && m.quantityDelta > 0)) {
+        entries += m.quantityDelta;
+      } else if (m.type === "sale_exit" || (m.type === "adjustment" && m.quantityDelta < 0)) {
+        exits += Math.abs(m.quantityDelta);
+      }
+    }
+
+    // Articles créés à 0 : la 1re entrée manuelle compte comme stock de départ.
+    if (initial === 0 && !sorted.some((m) => m.type === "initial")) {
+      const firstEntry = sorted.find(
+        (m) => m.type === "entry" || (m.type === "adjustment" && m.quantityDelta > 0)
+      );
+      if (firstEntry && firstEntry.quantityDelta > 0) {
+        initial = firstEntry.quantityDelta;
+        entries -= firstEntry.quantityDelta;
+      }
+    }
+
+    map.set(productId, { initial, entries, exits });
+  }
+  return map;
 }
 
 export default function StockPage() {
@@ -92,7 +143,6 @@ export default function StockPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tab, setTab] = useState("articles");
 
-  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [statusFilter, setStatusFilter] = useState(ALL_STATUS);
   const [search, setSearch] = useState("");
   const [productSort, setProductSort] = useState<{ key: ProductSortKey; dir: SortDir }>({
@@ -117,9 +167,21 @@ export default function StockPage() {
   const [reverseTarget, setReverseTarget] = useState<MovementGroup | null>(null);
   const [reversing, setReversing] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<MovementGroup | null>(null);
+  const [ledgerMovements, setLedgerMovements] = useState<StockMovementWithProduct[]>([]);
 
   function loadProducts() {
     apiFetch<{ products: Product[] }>("/api/v1/products").then((d) => setProducts(d.products));
+  }
+
+  function loadLedger() {
+    // Historique complet pour les colonnes Stock initial / Entrées / Sorties.
+    const qs = new URLSearchParams({
+      from: new Date("2000-01-01T00:00:00.000Z").toISOString(),
+      to: new Date().toISOString(),
+    });
+    apiFetch<{ movements: StockMovementWithProduct[] }>(`/api/v1/stock-movements?${qs}`).then((d) =>
+      setLedgerMovements(d.movements)
+    );
   }
 
   function loadMovements(selection: PeriodSelection = movementPeriod) {
@@ -134,8 +196,12 @@ export default function StockPage() {
       .finally(() => setLoadingMovements(false));
   }
 
-  useEffect(loadProducts, []);
   useEffect(() => {
+    loadProducts();
+    loadLedger();
+  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des mouvements sur changement de période, pattern volontaire
     loadMovements(movementPeriod);
   }, [movementPeriod.preset, movementPeriod.customFrom, movementPeriod.customTo]);
   useEffect(() => {
@@ -143,14 +209,17 @@ export default function StockPage() {
   }, []);
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lit l'onglet actif depuis l'URL au montage, pattern volontaire
     if (t === "historique" || t === "articles") setTab(t);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lit l'onglet actif depuis l'URL au montage (lecture client-only), pattern volontaire
     setProductPage(1);
-  }, [search, categoryFilter, statusFilter, productPageSize, productSort]);
+  }, [search, statusFilter, productPageSize, productSort]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise la pagination quand les filtres changent, pattern volontaire
     setMovementPage(1);
   }, [movementProductFilter, movementTypeFilter, movementSearch, movementPageSize, movementSort, movementPeriod.preset, movementPeriod.customFrom, movementPeriod.customTo]);
 
@@ -160,12 +229,6 @@ export default function StockPage() {
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
-      const matchesCategory =
-        categoryFilter === ALL_CATEGORIES
-          ? true
-          : categoryFilter === NO_CATEGORY
-            ? !p.categoryId
-            : p.categoryId === categoryFilter;
       const matchesSearch = !q || p.name.toLowerCase().includes(q);
       const isAlert = p.currentStock <= p.stockMinThreshold;
       const matchesStatus =
@@ -174,9 +237,14 @@ export default function StockPage() {
           : statusFilter === "alert"
             ? isAlert
             : !isAlert;
-      return matchesCategory && matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus;
     });
-  }, [products, categoryFilter, search, statusFilter]);
+  }, [products, search, statusFilter]);
+
+  const productBalances = useMemo(
+    () => computeProductBalances(ledgerMovements),
+    [ledgerMovements]
+  );
 
   const sortedProducts = useMemo(() => {
     const list = [...filteredProducts];
@@ -185,13 +253,27 @@ export default function StockPage() {
     list.sort((a, b) => {
       if (key === "name") return mul * a.name.localeCompare(b.name, "fr");
       if (key === "stock") return mul * (a.currentStock - b.currentStock);
-      if (key === "threshold") return mul * (a.stockMinThreshold - b.stockMinThreshold);
+      if (key === "initial") {
+        const ai = productBalances.get(a.id)?.initial ?? 0;
+        const bi = productBalances.get(b.id)?.initial ?? 0;
+        return mul * (ai - bi);
+      }
+      if (key === "entries") {
+        const ae = productBalances.get(a.id)?.entries ?? 0;
+        const be = productBalances.get(b.id)?.entries ?? 0;
+        return mul * (ae - be);
+      }
+      if (key === "exits") {
+        const ax = productBalances.get(a.id)?.exits ?? 0;
+        const bx = productBalances.get(b.id)?.exits ?? 0;
+        return mul * (ax - bx);
+      }
       const aAlert = a.currentStock <= a.stockMinThreshold ? 0 : 1;
       const bAlert = b.currentStock <= b.stockMinThreshold ? 0 : 1;
       return mul * (aAlert - bAlert);
     });
     return list;
-  }, [filteredProducts, productSort]);
+  }, [filteredProducts, productSort, productBalances]);
 
   const productPager = useMemo(
     () => paginate(sortedProducts, productPage, productPageSize),
@@ -202,7 +284,6 @@ export default function StockPage() {
     () => filteredProducts.filter((p) => p.currentStock <= p.stockMinThreshold).length,
     [filteredProducts]
   );
-  const okCount = filteredProducts.length - alertCount;
 
   const filteredMovements = useMemo(() => {
     const q = movementSearch.trim().toLowerCase();
@@ -281,11 +362,6 @@ export default function StockPage() {
     );
   }
 
-  function openProductHistory(productId: string) {
-    setMovementProductFilter(productId);
-    setTab("historique");
-  }
-
   async function handleReverse() {
     if (!reverseTarget?.batchId) return;
     setReversing(true);
@@ -293,6 +369,7 @@ export default function StockPage() {
       await apiFetch(`/api/v1/stock-movements/${reverseTarget.batchId}/reverse`, { method: "POST" });
       toast.success("Mouvement annule");
       loadProducts();
+      loadLedger();
       loadMovements(movementPeriod);
       setReverseTarget(null);
       setSelectedGroup(null);
@@ -307,7 +384,7 @@ export default function StockPage() {
     <div className="space-y-6">
       <PageHeader
         title="Stock"
-        description="Alertes automatiques des que le seuil minimum est atteint. Catalogue dans Articles."
+        description="Stock initial, entrees, sorties et stock actuel — alertes des que le seuil est atteint."
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild>
@@ -330,7 +407,7 @@ export default function StockPage() {
             Niveaux
           </TabsTrigger>
           <TabsTrigger value="historique" className="shrink-0">
-            Historique
+            Mouvement du stock
             {!loadingMovements && movementGroups.length > 0 && (
               <span className="font-figures ml-1.5 text-[10px] text-muted-foreground">
                 {movementGroups.length}
@@ -340,24 +417,21 @@ export default function StockPage() {
         </TabsList>
 
         <TabsContent value="articles" className="mt-0 space-y-3 outline-none">
-          <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-3">
-            <KpiCell
-              label="Alertes"
-              value={String(alertCount)}
-              tone={alertCount > 0 ? "bad" : "default"}
-              icon={<AlertTriangle className="size-3.5" />}
-              active={statusFilter === "alert"}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {filteredProducts.length} article{filteredProducts.length !== 1 ? "s" : ""}
+            </p>
+
+            <Button
+              type="button"
+              size="sm"
+              variant={statusFilter === "alert" ? "default" : "outline"}
               onClick={() => setStatusFilter((v) => (v === "alert" ? ALL_STATUS : "alert"))}
-            />
-            <KpiCell
-              label="OK"
-              value={String(okCount)}
-              tone="good"
-              icon={<PackageCheck className="size-3.5" />}
-              active={statusFilter === "ok"}
-              onClick={() => setStatusFilter((v) => (v === "ok" ? ALL_STATUS : "ok"))}
-            />
-            <KpiCell label="Articles" value={String(filteredProducts.length)} />
+            >
+              <AlertTriangle className="mr-2 size-4" />
+              Alertes seulement
+              <span className="ml-1 text-[10px] opacity-80">({alertCount})</span>
+            </Button>
           </div>
 
           <div className="border border-border bg-card">
@@ -371,29 +445,10 @@ export default function StockPage() {
                   className="h-9 pl-9"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_CATEGORIES}>Toutes les categories</SelectItem>
-                  <SelectItem value={NO_CATEGORY}>Sans categorie</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {statusFilter !== ALL_STATUS && (
-                <Button type="button" size="sm" variant="outline" onClick={() => setStatusFilter(ALL_STATUS)}>
-                  Tous statuts
-                </Button>
-              )}
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[44rem] border-collapse text-sm">
+              <table className="w-full min-w-[52rem] border-collapse text-sm">
                 <thead className="border-b border-border bg-muted/80">
                   <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
                     <SortableTh
@@ -403,21 +458,33 @@ export default function StockPage() {
                       onClick={() => toggleProductSort("name")}
                     />
                     <SortableTh
-                      label="Stock"
+                      label="Stock initial"
+                      align="right"
+                      active={productSort.key === "initial"}
+                      dir={productSort.dir}
+                      onClick={() => toggleProductSort("initial")}
+                    />
+                    <SortableTh
+                      label="Entrees"
+                      align="right"
+                      active={productSort.key === "entries"}
+                      dir={productSort.dir}
+                      onClick={() => toggleProductSort("entries")}
+                    />
+                    <SortableTh
+                      label="Sorties"
+                      align="right"
+                      active={productSort.key === "exits"}
+                      dir={productSort.dir}
+                      onClick={() => toggleProductSort("exits")}
+                    />
+                    <SortableTh
+                      label="Stock actuel"
                       align="right"
                       active={productSort.key === "stock"}
                       dir={productSort.dir}
                       onClick={() => toggleProductSort("stock")}
                     />
-                    <SortableTh
-                      label="Seuil"
-                      align="right"
-                      className="hidden sm:table-cell"
-                      active={productSort.key === "threshold"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("threshold")}
-                    />
-                    <th className="w-32 px-4 py-2.5 font-semibold text-muted-foreground">Niveau</th>
                     <SortableTh
                       label="Statut"
                       active={productSort.key === "status"}
@@ -432,7 +499,7 @@ export default function StockPage() {
                 <tbody>
                   {productPager.rows.map((p) => {
                     const alert = p.currentStock <= p.stockMinThreshold;
-                    const ratio = stockBarRatio(p.currentStock, p.stockMinThreshold);
+                    const bal = productBalances.get(p.id) ?? emptyBalance();
                     return (
                       <tr
                         key={p.id}
@@ -444,8 +511,18 @@ export default function StockPage() {
                         <td className="px-4 py-2.5">
                           <p className="font-semibold leading-snug tracking-tight">{p.name}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {categoryName(p.categoryId)}
+                            {categoryName(p.categoryId)} · seuil {p.stockMinThreshold} {p.unitLabel}
+                            {p.stockMinThreshold !== 1 ? "(s)" : ""}
                           </p>
+                        </td>
+                        <td className="font-figures px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                          {bal.initial}
+                        </td>
+                        <td className="font-figures px-4 py-2.5 text-right font-semibold tabular-nums text-success">
+                          {bal.entries > 0 ? `+${bal.entries}` : bal.entries}
+                        </td>
+                        <td className="font-figures px-4 py-2.5 text-right font-semibold tabular-nums text-destructive">
+                          {bal.exits > 0 ? `−${bal.exits}` : bal.exits}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <p
@@ -459,23 +536,6 @@ export default function StockPage() {
                           <p className="text-[11px] text-muted-foreground">
                             {p.unitLabel}
                             {p.currentStock !== 1 ? "(s)" : ""}
-                          </p>
-                        </td>
-                        <td className="font-figures hidden px-4 py-2.5 text-right text-muted-foreground sm:table-cell">
-                          {p.stockMinThreshold}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="h-1 w-full bg-muted">
-                            <div
-                              className={cn(
-                                "h-full transition-[width]",
-                                alert ? "bg-destructive" : "bg-success"
-                              )}
-                              style={{ width: `${ratio}%` }}
-                            />
-                          </div>
-                          <p className="font-figures mt-1 text-[10px] text-muted-foreground">
-                            {p.currentStock}/{Math.max(p.stockMinThreshold * 2, 1)}
                           </p>
                         </td>
                         <td className="px-4 py-2.5">
@@ -493,13 +553,14 @@ export default function StockPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
-                                <Link href="/app/stock/mouvement?type=entry">Entree de stock</Link>
+                                <Link href={`/app/stock/mouvement?type=entry&productId=${p.id}`}>
+                                  Entree de stock
+                                </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link href="/app/stock/mouvement?type=adjustment">Sortie de stock</Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openProductHistory(p.id)}>
-                                Voir l&apos;historique
+                                <Link href={`/app/stock/mouvement?type=adjustment&productId=${p.id}`}>
+                                  Sortie de stock
+                                </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem asChild>
@@ -513,7 +574,7 @@ export default function StockPage() {
                   })}
                   {productPager.total === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                         {products.length === 0
                           ? "Aucun article. Creez-en depuis la page Articles."
                           : "Aucun article ne correspond aux filtres."}
@@ -927,6 +988,7 @@ export default function StockPage() {
           )}
         </SheetContent>
       </Sheet>
+
     </div>
   );
 }

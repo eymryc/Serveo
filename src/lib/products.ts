@@ -129,7 +129,7 @@ type ApplyMovementInput = {
   organizationId: string;
   userId: string;
   productId: string;
-  type: "entry" | "adjustment";
+  type: "initial" | "entry" | "sale_exit" | "adjustment";
   quantityDelta: number;
   note?: string;
   occurredAt?: Date;
@@ -182,7 +182,24 @@ async function applyStockMovement(tx: Tx, input: ApplyMovementInput) {
 
 export async function createStockMovement(input: CreateStockMovementInput) {
   const db = getDb();
-  return db.transaction((tx) => applyStockMovement(tx, input));
+  return db.transaction(async (tx) => {
+    let type: ApplyMovementInput["type"] = input.type;
+    // 1re saisie sur un article neuf → stock initial (pas une entrée).
+    if (input.type === "entry" && input.quantityDelta > 0) {
+      const [existing] = await tx
+        .select({ id: stockMovements.id })
+        .from(stockMovements)
+        .where(
+          and(
+            eq(stockMovements.organizationId, input.organizationId),
+            eq(stockMovements.productId, input.productId)
+          )
+        )
+        .limit(1);
+      if (!existing) type = "initial";
+    }
+    return applyStockMovement(tx, { ...input, type });
+  });
 }
 
 export type ReverseStockMovementBatchInput = {

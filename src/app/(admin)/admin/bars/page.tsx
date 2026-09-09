@@ -64,6 +64,7 @@ export default function AdminBarsPage() {
 
   useEffect(() => {
     if (!selectedId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données au montage, pattern volontaire
       setDetail(null);
       return;
     }

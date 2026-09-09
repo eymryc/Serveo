@@ -52,6 +52,7 @@ export function SearchableSelect({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise l'état interne quand le select se ferme, pattern volontaire
       setQuery("");
       setHighlight(0);
       return;
@@ -61,6 +62,7 @@ export function SearchableSelect({
   }, [open]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise la surbrillance quand la recherche change, pattern volontaire
     setHighlight(0);
   }, [query]);
 

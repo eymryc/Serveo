@@ -47,6 +47,7 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -60,6 +61,10 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      // Evite le mismatch d'hydratation disabled=true vs null (Firefox
+      // restaure parfois l'etat disabled des boutons au soft reload).
+      {...(!asChild ? { autoComplete: "off" as const } : null)}
+      disabled={disabled || undefined}
       {...props}
     />
   )

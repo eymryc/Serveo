@@ -73,6 +73,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const stored = readStoredTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lit le thème stocké après hydratation pour éviter un mismatch SSR, pattern volontaire
     setThemeState(stored);
     applyTheme(stored);
   }, []);

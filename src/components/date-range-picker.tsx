@@ -85,6 +85,7 @@ export function DateRangePicker({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resynchronise le brouillon quand from/to changent depuis l'extérieur, pattern volontaire
       setDraft({ from: new Date(fromKey), to: new Date(toKey) });
       setPickingEnd(false);
     }

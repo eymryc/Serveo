@@ -1,5 +1,4 @@
 allowBuilds:
-  '@clerk/shared': true
   esbuild: true
   sharp: true
   unrs-resolver: true
@@ -7,4 +6,3 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
-  - '@clerk/shared'

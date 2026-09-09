@@ -88,6 +88,7 @@ export default function ChargesPage() {
     });
   }, []);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise la pagination quand les filtres changent, pattern volontaire
     setPage(1);
   }, [search, categoryFilter, paymentFilter, pageSize, sort, period.preset, period.customFrom, period.customTo]);
 

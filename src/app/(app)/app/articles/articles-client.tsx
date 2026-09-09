@@ -118,6 +118,7 @@ export default function ArticlesPageClient() {
   }, [packageLabelList, form.packageLabel]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- réinitialise la pagination quand les filtres changent, pattern volontaire
     setPage(1);
   }, [search, categoryFilter, statusFilter, pageSize, sort]);
 
