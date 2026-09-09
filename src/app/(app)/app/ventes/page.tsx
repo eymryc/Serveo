@@ -34,6 +34,8 @@ import {
   TablePagination,
 } from "@/components/data-table";
 import { PeriodSelector } from "@/components/dashboard/period-selector";
+import { DatePicker } from "@/components/date-picker";
+import { startOfDay } from "date-fns";
 
 const ALL_PAYMENTS = "all";
 
@@ -52,6 +54,19 @@ type SaleGroup = {
 
 function emptyLine(): CartLine {
   return { productId: "", quantity: 1, discount: 0 };
+}
+
+/** Conserve l'heure courante sur la date choisie (locale). */
+function dateToSoldAt(date: Date) {
+  const now = new Date();
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds()
+  ).toISOString();
 }
 
 function periodKpiLabels(period: PeriodKey) {
@@ -102,7 +117,18 @@ function groupSalesByTicket(sales: Sale[]): SaleGroup[] {
 }
 
 function formatSaleTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("fr-FR", {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -157,6 +183,7 @@ export default function VentesPage() {
   const [historyPageSize, setHistoryPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [cart, setCart] = useState<CartLine[]>([emptyLine()]);
   const [paymentMethod, setPaymentMethod] = useState("especes");
+  const [soldDate, setSoldDate] = useState(() => startOfDay(new Date()));
   const [recapExpanded, setRecapExpanded] = useState(false);
 
   function loadProducts() {
@@ -295,6 +322,7 @@ export default function VentesPage() {
     }
 
     const batchId = crypto.randomUUID();
+    const soldAt = dateToSoldAt(soldDate);
     setSubmitting(true);
     const failedLines: CartLine[] = [];
     try {
@@ -308,6 +336,7 @@ export default function VentesPage() {
               discount: line.discount,
               paymentMethod,
               batchId,
+              ...(soldAt ? { soldAt } : {}),
             }),
           });
         } catch {
@@ -323,6 +352,7 @@ export default function VentesPage() {
       if (failedLines.length === 0) {
         toast.success(`Facture enregistree — ${formatFcfa(grandTotal)}`);
         setCart([emptyLine()]);
+        setSoldDate(startOfDay(new Date()));
       } else if (succeeded > 0) {
         toast.warning(
           `${succeeded}/${cartLines.length} article(s) enregistres, ${failedLines.length} en erreur`
@@ -562,29 +592,45 @@ export default function VentesPage() {
 
                 <div className="shrink-0 border-t border-border bg-card">
                   {cartLines.length > 0 && (
-                    <div className="space-y-2 border-b border-border px-4 py-3">
-                      <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                        Paiement
-                      </p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {activePaymentMethods.map((value) => {
-                          const active = paymentMethod === value;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => setPaymentMethod(value)}
-                              className={cn(
-                                "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
-                                active
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                              )}
-                            >
-                              {PAYMENT_METHOD_LABELS[value] ?? value}
-                            </button>
-                          );
-                        })}
+                    <div className="space-y-3 border-b border-border px-4 py-3">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="sold-date"
+                          className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase"
+                        >
+                          Date de vente
+                        </Label>
+                        <DatePicker
+                          id="sold-date"
+                          value={soldDate}
+                          onChange={setSoldDate}
+                          maxDate={startOfDay(new Date())}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                          Paiement
+                        </p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {activePaymentMethods.map((value) => {
+                            const active = paymentMethod === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setPaymentMethod(value)}
+                                className={cn(
+                                  "h-11 border px-2 text-left text-[11px] font-medium leading-tight transition-colors",
+                                  active
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                )}
+                              >
+                                {PAYMENT_METHOD_LABELS[value] ?? value}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -695,7 +741,7 @@ export default function VentesPage() {
                   <table className="w-full min-w-[36rem] border-collapse text-sm">
                     <thead className="border-b border-border bg-muted/80">
                       <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                        <th className="px-4 py-2.5 font-semibold">Heure</th>
+                        <th className="px-4 py-2.5 font-semibold">Date</th>
                         <th className="px-4 py-2.5 font-semibold">Facture</th>
                         <th className="hidden px-4 py-2.5 font-semibold sm:table-cell">Paiement</th>
                         <th className="px-4 py-2.5 text-right font-semibold">Quantite</th>
