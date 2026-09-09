@@ -1,7 +1,8 @@
-// Fonctions pures (pas de DB, pas d'auth) — c'est ici que sont corriges les
-// bugs de calcul releves dans le template Sheets d'origine (pourcentages a
-// 0.0% fige, marge negative absurde car periodes non alignees, objectif
-// code en dur). Isolees pour etre testees sans dependance a la base.
+// Fonctions pures (pas de DB, pas d'auth) — cascade comptable commerce :
+// CA net → marge brute (− COGS) → bénéfice net (− charges). Corrige aussi
+// les bugs du template Sheets d'origine (pourcentages a 0.0% fige, marge
+// negative absurde car periodes non alignees, objectif code en dur).
+// Isolees pour etre testees sans dependance a la base.
 
 import type { PeriodPreset, PeriodSelection } from "@/lib/types";
 
@@ -14,17 +15,28 @@ export function withPercentages<T extends { amount: number }>(rows: T[], total: 
   }));
 }
 
-export function computeNetProfit(netRevenue: number, totalExpenses: number) {
-  return netRevenue - totalExpenses;
+/** Marge brute commerciale = CA net − coût d'achat des marchandises vendues. */
+export function computeGrossMargin(netRevenue: number, cogs: number) {
+  return netRevenue - cogs;
+}
+
+/**
+ * Bénéfice net (résultat) = CA net − COGS − charges d'exploitation.
+ * Convention commerce de détail / restauration : la marge brute absorbe
+ * le coût d'achat, puis on retire les charges saisies.
+ */
+export function computeNetProfit(netRevenue: number, cogs: number, totalExpenses: number) {
+  return computeGrossMargin(netRevenue, cogs) - totalExpenses;
 }
 
 export function computeProductProfit(revenue: number, cogs: number) {
   return revenue - cogs;
 }
 
-export function computeMarginPct(netRevenue: number, netProfit: number): number | null {
+/** Marge % = résultat / CA net (null si pas de CA pour éviter -Infinity). */
+export function computeMarginPct(netRevenue: number, amount: number): number | null {
   if (netRevenue <= 0) return null;
-  return (netProfit / netRevenue) * 100;
+  return (amount / netRevenue) * 100;
 }
 
 export function computeGoalProgressPct(netRevenue: number, target: number | null): number | null {

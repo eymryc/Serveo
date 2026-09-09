@@ -61,8 +61,7 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
 
 function RapportsSkeleton() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-12 w-72" />
+    <div className="space-y-4">
       <Skeleton className="h-10 w-80" />
       <Skeleton className="h-64 w-full" />
     </div>
@@ -73,25 +72,58 @@ export default function RapportsPageClient() {
   const [period, setPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
   const [tab, setTab] = useState("ventes");
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(null);
+    let cancelled = false;
+    setLoading(true);
     setError(null);
     apiFetch<DashboardData>(`/api/v1/dashboard?${periodSelectionQuery(period)}`)
-      .then(setData)
-      .catch((e) => setError(e.message));
+      .then((next) => {
+        if (!cancelled) setData(next);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [period.preset, period.customFrom, period.customTo]);
+
+  const shell = (
+    <>
+      <PageHeader
+        title="Rapports"
+        description="Analyses détaillées — ventes, charges et stock."
+      />
+      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
+    </>
+  );
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertTitle>{error}</AlertTitle>
-      </Alert>
+      <div className="space-y-6">
+        {shell}
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{error}</AlertTitle>
+        </Alert>
+      </div>
     );
   }
-  if (!data) return <RapportsSkeleton />;
+
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        {shell}
+        <RapportsSkeleton />
+      </div>
+    );
+  }
 
   // Le gerant est deja garanti par la page serveur (redirect sinon) — ce
   // filet ne sert qu'a eviter un crash si l'API renvoie quand meme une vue
@@ -111,13 +143,9 @@ export default function RapportsPageClient() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Rapports"
-        description="Analyses détaillées — ventes, charges et stock."
-      />
+      {shell}
 
-      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
-
+      <div className={cn(loading && "pointer-events-none opacity-60")}>
       <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList variant="line" className="h-10 w-full justify-start gap-0 overflow-x-auto scroll-touch scrollbar-none rounded-none border-b border-border p-0">
           <TabsTrigger value="ventes" className="shrink-0">
@@ -201,8 +229,8 @@ export default function RapportsPageClient() {
             <div>
               <h2 className="text-sm font-semibold tracking-tight">Articles vendus</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Tous les articles avec ventes sur la periode, classes par CA decroissant. Benefice = CA net
-                moins cout d&apos;achat (prix d&apos;achat catalogue x quantite vendue).
+                Tous les articles avec ventes sur la periode, classes par CA decroissant. Marge article =
+                CA net moins cout d&apos;achat (prix d&apos;achat catalogue × quantite vendue).
               </p>
             </div>
             <DataTable
@@ -288,17 +316,28 @@ export default function RapportsPageClient() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border border-border bg-card px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              CA {formatFcfa(data.revenue.net)} − Charges {formatFcfa(data.expenses.total)} ={" "}
-              <span
-                className={cn(
-                  "font-figures font-bold",
-                  profitTone === "good" ? "text-success" : "text-destructive"
-                )}
-              >
-                {formatFcfa(data.result.netProfit)}
-              </span>
-            </p>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>
+                CA {formatFcfa(data.revenue.net)} − Cout d&apos;achat {formatFcfa(data.result.cogs)} ={" "}
+                <span className="font-figures font-semibold text-foreground">
+                  Marge brute {formatFcfa(data.result.grossMargin)}
+                </span>{" "}
+                ({formatPercent(data.result.grossMarginPct)})
+              </p>
+              <p>
+                Marge brute {formatFcfa(data.result.grossMargin)} − Charges{" "}
+                {formatFcfa(data.expenses.total)} ={" "}
+                <span
+                  className={cn(
+                    "font-figures font-bold",
+                    profitTone === "good" ? "text-success" : "text-destructive"
+                  )}
+                >
+                  Benefice net {formatFcfa(data.result.netProfit)}
+                </span>{" "}
+                (marge nette {formatPercent(data.result.marginPct)})
+              </p>
+            </div>
             <Button asChild variant="outline" size="sm">
               <Link href="/app/charges">
                 Gerer les charges <ArrowRight className="size-3.5" />
@@ -382,6 +421,7 @@ export default function RapportsPageClient() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

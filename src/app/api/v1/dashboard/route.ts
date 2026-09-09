@@ -4,10 +4,12 @@ import { getDb } from "@/db";
 import { expenseCategories, expenses, organizations, productCategories, products, sales } from "@/db/schema";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { stripPurchasePrice } from "@/lib/products";
+import { activeSalesOnly } from "@/lib/sales";
 import {
   computeAvgTicket,
   computeDeltaPct,
   computeGoalProgressPct,
+  computeGrossMargin,
   computeMarginPct,
   computeNetProfit,
   computeProductProfit,
@@ -81,7 +83,12 @@ export async function GET(req: NextRequest) {
         .select({ count: sql<number>`count(*)::int` })
         .from(sales)
         .where(
-          and(eq(sales.organizationId, organizationId), gte(sales.soldAt, from), lte(sales.soldAt, to))
+          and(
+            eq(sales.organizationId, organizationId),
+            gte(sales.soldAt, from),
+            lte(sales.soldAt, to),
+            activeSalesOnly()
+          )
         );
 
       const [activeProductsRow] = await db
@@ -106,7 +113,8 @@ export async function GET(req: NextRequest) {
     const salesInPeriod = and(
       eq(sales.organizationId, organizationId),
       gte(sales.soldAt, from),
-      lte(sales.soldAt, to)
+      lte(sales.soldAt, to),
+      activeSalesOnly()
     );
     const expensesInPeriod = and(
       eq(expenses.organizationId, organizationId),
@@ -137,7 +145,8 @@ export async function GET(req: NextRequest) {
         and(
           eq(sales.organizationId, organizationId),
           gte(sales.soldAt, prev.from),
-          lte(sales.soldAt, prev.to)
+          lte(sales.soldAt, prev.to),
+          activeSalesOnly()
         )
       );
 
@@ -230,12 +239,13 @@ export async function GET(req: NextRequest) {
     const grossRevenue = Number(revenueTotals?.grossRevenue ?? 0);
     const salesCount = revenueTotals?.salesCount ?? 0;
     const totalExpenses = Number(expenseTotals?.total ?? 0);
-    const netProfit = computeNetProfit(netRevenue, totalExpenses);
-    const marginPct = computeMarginPct(netRevenue, netProfit);
     const cogs = topProductsRaw.reduce((sum, r) => sum + Number(r.cogs), 0);
     const unitsSold = topProductsRaw.reduce((sum, r) => sum + r.quantity, 0);
-    const grossMargin = grossRevenue - cogs;
-    const grossMarginPct = computeMarginPct(grossRevenue, grossMargin);
+    // Cascade comptable : CA net → marge brute (− COGS) → bénéfice net (− charges).
+    const grossMargin = computeGrossMargin(netRevenue, cogs);
+    const grossMarginPct = computeMarginPct(netRevenue, grossMargin);
+    const netProfit = computeNetProfit(netRevenue, cogs, totalExpenses);
+    const marginPct = computeMarginPct(netRevenue, netProfit);
     const target = org?.monthlyRevenueTarget ? Number(org.monthlyRevenueTarget) : null;
     const goalProgressPct = computeGoalProgressPct(netRevenue, target);
     const previousNetRevenue = Number(previousRevenue?.netRevenue ?? 0);
@@ -287,7 +297,15 @@ export async function GET(req: NextRequest) {
       revenueByCategory,
       paymentMethodBreakdown,
       topProducts,
-      result: { netProfit, marginPct, goalProgressPct, monthlyRevenueTarget: target },
+      result: {
+        cogs,
+        grossMargin,
+        grossMarginPct,
+        netProfit,
+        marginPct,
+        goalProgressPct,
+        monthlyRevenueTarget: target,
+      },
       stock: {
         totalValue: Number(stockValueRow?.value ?? 0),
         activeProductsCount: stockValueRow?.activeCount ?? 0,

@@ -43,6 +43,13 @@
       "when": 1785769000000,
       "tag": "0005_sales_batch_id",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785770000000,
+      "tag": "0006_sales_cancel",
+      "breakpoints": true
     }
   ]
 }

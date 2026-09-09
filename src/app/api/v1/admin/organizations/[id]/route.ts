@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { organizations, products, sales, users } from "@/db/schema";
 import { HttpError } from "@/lib/http-errors";
@@ -41,11 +41,11 @@ export async function GET(
       db
         .select({ value: sql<number>`count(*)::int` })
         .from(sales)
-        .where(eq(sales.organizationId, id)),
+        .where(and(eq(sales.organizationId, id), sql`${sales.cancelledAt} is null`)),
       db
         .select({ value: sql<string>`coalesce(sum(${sales.netAmount}), 0)` })
         .from(sales)
-        .where(eq(sales.organizationId, id)),
+        .where(and(eq(sales.organizationId, id), sql`${sales.cancelledAt} is null`)),
     ]);
 
     return NextResponse.json({

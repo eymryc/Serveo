@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowRight,
   Banknote,
-  Package,
   PackageSearch,
   Receipt,
   ShoppingCart,
@@ -22,22 +21,25 @@ import { StatCard } from "@/components/stat-card";
 import { PageHeader } from "@/components/page-header";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PeriodSelector } from "@/components/dashboard/period-selector";
 import { BreakdownBarList } from "@/components/dashboard/breakdown-bar-list";
 import { RevenueTrendChart } from "@/components/dashboard/revenue-trend-chart";
 
-function DashboardSkeleton() {
+function DashboardContentSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-12 w-72" />
       <div className="grid grid-cols-2 gap-px border border-border bg-border md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-none" />
         ))}
       </div>
-      <Skeleton className="h-10 w-80" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-none" />
+        ))}
+      </div>
       <Skeleton className="h-64 w-full" />
     </div>
   );
@@ -46,19 +48,42 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const [period, setPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(null);
+    let cancelled = false;
+    setLoading(true);
     setError(null);
     apiFetch<DashboardData>(`/api/v1/dashboard?${periodSelectionQuery(period)}`)
-      .then(setData)
-      .catch((e) => setError(e.message));
+      .then((next) => {
+        if (!cancelled) setData(next);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [period.preset, period.customFrom, period.customTo]);
+
+  const shell = (
+    <>
+      <PageHeader
+        title="Tableau de bord"
+        description="Compte de résultat simplifié — CA, marge brute, charges et bénéfice."
+      />
+      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
+    </>
+  );
 
   if (error) {
     return (
-      <div>
+      <div className="space-y-6">
+        {shell}
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>{error}</AlertTitle>
@@ -66,11 +91,19 @@ export default function DashboardPage() {
       </div>
     );
   }
-  if (!data) return <DashboardSkeleton />;
+
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        {shell}
+        <DashboardContentSkeleton />
+      </div>
+    );
+  }
 
   if (data.restricted) {
     return (
-      <div className="space-y-6">
+      <div className={cn("space-y-6", loading && "opacity-70")}>
         <PageHeader
           title="Tableau de bord"
           description="Vue operationnelle — les chiffres financiers sont reserves au gerant."
@@ -111,17 +144,14 @@ export default function DashboardPage() {
   }
 
   const profitTone = data.result.netProfit >= 0 ? "good" : "bad";
+  const grossTone = data.result.grossMargin >= 0 ? "good" : "bad";
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Tableau de bord"
-        description="Vue d'ensemble de l'activite — CA, charges et stock."
-      />
+      {shell}
 
-      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
-
-      {/* KPI strip — toujours visible */}
+      <div className={cn("space-y-6", loading && "pointer-events-none opacity-60")}>
+      {/* Cascade comptable : CA → marge brute (− COGS) → bénéfice (− charges) */}
       <div className="grid grid-cols-2 gap-px border border-border bg-border lg:grid-cols-4">
         <div className="bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-2">
@@ -148,20 +178,21 @@ export default function DashboardPage() {
         <div className="bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-              Benefice net
+              Marge brute
             </p>
-            <Wallet className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+            <TrendingUp className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
           </div>
           <p
             className={cn(
               "font-figures mt-1.5 text-2xl font-bold tracking-tight md:text-3xl",
-              profitTone === "good" ? "text-success" : "text-destructive"
+              grossTone === "good" ? "text-success" : "text-destructive"
             )}
           >
-            {formatFcfa(data.result.netProfit)}
+            {formatFcfa(data.result.grossMargin)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Marge {formatPercent(data.result.marginPct)}
+            {formatPercent(data.result.grossMarginPct)} apres cout d&apos;achat{" "}
+            {formatFcfa(data.result.cogs)}
           </p>
         </div>
         <div className="bg-card px-4 py-4">
@@ -182,29 +213,52 @@ export default function DashboardPage() {
         <div className="bg-card px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-              Alertes stock
+              Benefice net
             </p>
-            <PackageSearch className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+            <Wallet className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
           </div>
           <p
             className={cn(
               "font-figures mt-1.5 text-2xl font-bold tracking-tight md:text-3xl",
-              data.stock.alertsCount > 0 ? "text-destructive" : "text-success"
+              profitTone === "good" ? "text-success" : "text-destructive"
             )}
           >
-            {data.stock.alertsCount}
+            {formatFcfa(data.result.netProfit)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Stock {formatFcfa(data.stock.totalValue)}
+            Marge nette {formatPercent(data.result.marginPct)}
           </p>
         </div>
       </div>
 
       {/* Secondaire : activite */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Ticket moyen" value={formatFcfa(data.revenue.avgTicket)} icon={ShoppingCart} />
+        <StatCard
+          label="Panier moyen"
+          hint="CA net ÷ nombre de ventes"
+          value={formatFcfa(data.revenue.avgTicket)}
+          icon={ShoppingCart}
+        />
         <StatCard label="Nb ventes" value={String(data.revenue.salesCount)} icon={TrendingUp} />
-        <StatCard label="Articles actifs" value={String(data.stock.activeProductsCount)} icon={Package} />
+        <div className="flex flex-col justify-between border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+              Alertes stock
+            </p>
+            <PackageSearch className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+          </div>
+          <p
+            className={cn(
+              "font-figures mt-2 text-lg font-bold",
+              data.stock.alertsCount > 0 ? "text-destructive" : "text-success"
+            )}
+          >
+            {data.stock.alertsCount}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Stock {formatFcfa(data.stock.totalValue)} · {data.stock.activeProductsCount} articles
+          </p>
+        </div>
         {data.result.monthlyRevenueTarget !== null ? (
           <div className="flex flex-col justify-between border border-border bg-card p-4">
             <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
@@ -283,6 +337,7 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-destructive">Voir le stock →</span>
             </Link>
           )}
+      </div>
       </div>
     </div>
   );

@@ -28,6 +28,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   KpiCell,
   PAGE_SIZES,
   paginate,
@@ -50,6 +60,8 @@ type SaleGroup = {
   total: number;
   lineCount: number;
   unitCount: number;
+  cancelled: boolean;
+  cancelledAt: string | null;
 };
 
 function emptyLine(): CartLine {
@@ -72,16 +84,16 @@ function dateToSoldAt(date: Date) {
 function periodKpiLabels(period: PeriodKey) {
   switch (period) {
     case "today":
-      return { revenue: "CA du jour", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+      return { revenue: "CA du jour", invoices: "Factures", avg: "Panier moyen", units: "Articles vendus" };
     case "week":
-      return { revenue: "CA semaine", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+      return { revenue: "CA semaine", invoices: "Factures", avg: "Panier moyen", units: "Articles vendus" };
     case "year":
-      return { revenue: "CA annee", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+      return { revenue: "CA annee", invoices: "Factures", avg: "Panier moyen", units: "Articles vendus" };
     case "custom":
-      return { revenue: "CA periode", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+      return { revenue: "CA periode", invoices: "Factures", avg: "Panier moyen", units: "Articles vendus" };
     case "month":
     default:
-      return { revenue: "CA du mois", invoices: "Factures", avg: "Ticket moyen", units: "Articles vendus" };
+      return { revenue: "CA du mois", invoices: "Factures", avg: "Panier moyen", units: "Articles vendus" };
   }
 }
 
@@ -101,6 +113,8 @@ function groupSalesByTicket(sales: Sale[]): SaleGroup[] {
         total: 0,
         lineCount: 0,
         unitCount: 0,
+        cancelled: false,
+        cancelledAt: null,
       });
       order.push(key);
     }
@@ -109,6 +123,10 @@ function groupSalesByTicket(sales: Sale[]): SaleGroup[] {
     group.total += Number(sale.netAmount);
     group.lineCount += 1;
     group.unitCount += sale.quantity;
+    if (sale.cancelledAt) {
+      group.cancelled = true;
+      group.cancelledAt = sale.cancelledAt;
+    }
   }
 
   return order
@@ -174,6 +192,8 @@ export default function VentesPage() {
   );
   const [submitting, setSubmitting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SaleGroup | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<SaleGroup | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [mainTab, setMainTab] = useState("caisse");
   const [historyPeriod, setHistoryPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
 
@@ -277,12 +297,13 @@ export default function VentesPage() {
   const saleGroups = useMemo(() => groupSalesByTicket(sales), [sales]);
 
   const todayStats = useMemo(() => {
-    const revenue = saleGroups.reduce((sum, g) => sum + g.total, 0);
-    const invoices = saleGroups.length;
-    const units = saleGroups.reduce((sum, g) => sum + g.unitCount, 0);
+    const active = saleGroups.filter((g) => !g.cancelled);
+    const revenue = active.reduce((sum, g) => sum + g.total, 0);
+    const invoices = active.length;
+    const units = active.reduce((sum, g) => sum + g.unitCount, 0);
     const avgTicket = invoices > 0 ? revenue / invoices : 0;
     const byPayment = new Map<string, { count: number; amount: number }>();
-    for (const g of saleGroups) {
+    for (const g of active) {
       const cur = byPayment.get(g.paymentMethod) ?? { count: 0, amount: 0 };
       cur.count += 1;
       cur.amount += g.total;
@@ -364,6 +385,25 @@ export default function VentesPage() {
       loadAll();
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCancelSale() {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await apiFetch(`/api/v1/sales/${cancelTarget.key}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      toast.success("Facture annulee — stock remis");
+      setCancelTarget(null);
+      setSelectedTicket(null);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -753,7 +793,10 @@ export default function VentesPage() {
                         <tr
                           key={group.key}
                           onClick={() => setSelectedTicket(group)}
-                          className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40"
+                          className={cn(
+                            "cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40",
+                            group.cancelled && "opacity-60"
+                          )}
                         >
                           <td className="font-figures px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                             {formatSaleTime(group.soldAt)}
@@ -761,6 +804,11 @@ export default function VentesPage() {
                           <td className="px-4 py-2.5">
                             <p className="truncate text-sm font-semibold">
                               {groupContentLabel(group, products)}
+                              {group.cancelled && (
+                                <span className="ml-1.5 text-[10px] font-bold tracking-wide text-destructive uppercase">
+                                  Annulee
+                                </span>
+                              )}
                             </p>
                             <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
                               {PAYMENT_METHOD_LABELS[group.paymentMethod] ?? group.paymentMethod}
@@ -772,7 +820,12 @@ export default function VentesPage() {
                           <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
                             {groupQtyLabel(group, products)}
                           </td>
-                          <td className="font-figures px-4 py-2.5 text-right text-sm font-bold">
+                          <td
+                            className={cn(
+                              "font-figures px-4 py-2.5 text-right text-sm font-bold",
+                              group.cancelled && "line-through text-muted-foreground"
+                            )}
+                          >
                             {formatFcfa(group.total)}
                           </td>
                         </tr>
@@ -811,7 +864,14 @@ export default function VentesPage() {
           {selectedTicket && (
             <>
               <SheetHeader className="border-b border-border">
-                <SheetTitle className="text-lg font-bold tracking-tight">Detail facture</SheetTitle>
+                <SheetTitle className="text-lg font-bold tracking-tight">
+                  Detail facture
+                  {selectedTicket.cancelled && (
+                    <span className="ml-2 text-xs font-bold tracking-wide text-destructive uppercase">
+                      Annulee
+                    </span>
+                  )}
+                </SheetTitle>
                 <SheetDescription asChild>
                   <div className="space-y-1 pt-1 text-sm">
                     <p className="font-figures font-medium text-foreground">
@@ -875,21 +935,67 @@ export default function VentesPage() {
                 </table>
               </div>
 
-              <div className="mt-auto border-t border-border px-4 py-4">
+              <div className="mt-auto space-y-3 border-t border-border px-4 py-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-sm text-muted-foreground">
                     {selectedTicket.lineCount} ligne{selectedTicket.lineCount > 1 ? "s" : ""} ·{" "}
                     {groupQtyLabel(selectedTicket, products)}
                   </span>
-                  <span className="font-figures text-xl font-bold tracking-tight">
+                  <span
+                    className={cn(
+                      "font-figures text-xl font-bold tracking-tight",
+                      selectedTicket.cancelled && "line-through text-muted-foreground"
+                    )}
+                  >
                     {formatFcfa(selectedTicket.total)}
                   </span>
                 </div>
+                {selectedTicket.cancelled ? (
+                  <p className="text-xs text-muted-foreground">
+                    Facture annulee
+                    {selectedTicket.cancelledAt
+                      ? ` le ${new Date(selectedTicket.cancelledAt).toLocaleString("fr-FR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : ""}
+                    . Le stock a ete remis.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    onClick={() => setCancelTarget(selectedTicket)}
+                  >
+                    Annuler la facture
+                  </Button>
+                )}
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler cette facture ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La facture restera visible comme annulee. Le stock des{" "}
+              {cancelTarget?.unitCount ?? 0} article(s) sera remis, et le montant sortira du CA.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Retour</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelSale} disabled={cancelling}>
+              {cancelling ? "Annulation…" : "Annuler la facture"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   computeAvgTicket,
   computeDeltaPct,
   computeGoalProgressPct,
+  computeGrossMargin,
   computeMarginPct,
   computeNetProfit,
   computeProductProfit,
@@ -40,23 +41,30 @@ describe("computeProductProfit", () => {
   });
 });
 
-describe("computeNetProfit / computeMarginPct — same-period comparison", () => {
-  it("reproduces the original sheet's bug scenario: 5 days of sales vs a full month of expenses", () => {
-    // CA Net = 44 300, Charges (mois entier) = 363 500 -> le PDF affichait
-    // -720.5% car les periodes n'etaient pas alignees. On verifie juste
-    // que la formule elle-meme est correcte pour ces montants.
-    const netProfit = computeNetProfit(44300, 363500);
+describe("computeGrossMargin / computeNetProfit / computeMarginPct", () => {
+  it("builds the retail P&L cascade: CA − COGS = marge brute, then − charges = bénéfice", () => {
+    // CA 500 000, coût d'achat 200 000, charges 100 000
+    expect(computeGrossMargin(500000, 200000)).toBe(300000);
+    const netProfit = computeNetProfit(500000, 200000, 100000);
+    expect(netProfit).toBe(200000);
+    expect(computeMarginPct(500000, 300000)).toBeCloseTo(60, 5); // marge brute
+    expect(computeMarginPct(500000, netProfit)).toBeCloseTo(40, 5); // marge nette
+  });
+
+  it("reproduces the original sheet bug scenario with COGS included", () => {
+    // CA Net = 44 300, COGS = 0 (pas de prix d'achat), Charges = 363 500
+    const netProfit = computeNetProfit(44300, 0, 363500);
     expect(netProfit).toBe(-319200);
     expect(computeMarginPct(44300, netProfit)).toBeCloseTo(-720.541, 2);
   });
 
-  it("returns null margin when there is no revenue yet, instead of -Infinity or NaN", () => {
-    expect(computeMarginPct(0, -50000)).toBeNull();
+  it("makes bénéfice < CA even with zero charges when COGS > 0", () => {
+    expect(computeNetProfit(95350, 40000, 0)).toBe(55350);
+    expect(computeMarginPct(95350, 55350)).toBeCloseTo(58.049, 2);
   });
 
-  it("computes a positive margin when revenue exceeds expenses", () => {
-    const netProfit = computeNetProfit(500000, 300000);
-    expect(computeMarginPct(500000, netProfit)).toBeCloseTo(40, 5);
+  it("returns null margin when there is no revenue yet, instead of -Infinity or NaN", () => {
+    expect(computeMarginPct(0, -50000)).toBeNull();
   });
 });
 

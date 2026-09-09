@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { organizations, products } from "@/db/schema";
-import { createSale } from "@/lib/sales";
+import { createSale, cancelSaleBatch } from "@/lib/sales";
 import { HttpError } from "@/lib/http-errors";
 
 const TEST_ORG_ID = `org_test_${Date.now()}`;
@@ -110,5 +110,43 @@ describe("createSale — le correctif du bug Ventes/Stock deconnectes", () => {
     ).rejects.toBeInstanceOf(HttpError);
 
     await db.delete(organizations).where(eq(organizations.id, otherOrgId));
+  });
+});
+
+describe("cancelSaleBatch", () => {
+  it("marque la facture annulee et restocke les articles", async () => {
+    const product = await createTestProduct({ currentStock: 10 });
+    const batchId = crypto.randomUUID();
+
+    await createSale({
+      organizationId: TEST_ORG_ID,
+      userId: TEST_USER_ID,
+      productId: product.id,
+      quantity: 3,
+      discount: 0,
+      paymentMethod: "especes",
+      batchId,
+    });
+
+    const cancelled = await cancelSaleBatch({
+      organizationId: TEST_ORG_ID,
+      userId: TEST_USER_ID,
+      batchKey: batchId,
+    });
+
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0].cancelledAt).toBeTruthy();
+
+    const db = getDb();
+    const [updated] = await db.select().from(products).where(eq(products.id, product.id));
+    expect(updated.currentStock).toBe(10);
+
+    await expect(
+      cancelSaleBatch({
+        organizationId: TEST_ORG_ID,
+        userId: TEST_USER_ID,
+        batchKey: batchId,
+      })
+    ).rejects.toBeInstanceOf(HttpError);
   });
 });

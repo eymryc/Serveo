@@ -173,6 +173,10 @@ export const sales = pgTable("sales", {
   // Etiquette partagee par toutes les lignes d'un meme encaissement
   // multi-articles — pour les regrouper comme une facture a l'affichage.
   batchId: uuid("batch_id"),
+  // Annulation tracee (jamais de suppression) — null = facture active.
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancelledByUserId: text("cancelled_by_user_id"),
+  cancelReason: text("cancel_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("sales_org_soldat_idx").on(t.organizationId, t.soldAt),

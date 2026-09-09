@@ -197,6 +197,36 @@
     opacity: 0.028;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
+
+  /* Curseur pointer sur tout élément cliquable (liens, boutons, etc.). */
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="link"],
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([aria-disabled="true"]),
+  [role="radio"]:not([aria-disabled="true"]),
+  summary,
+  label[for],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @layer utilities {

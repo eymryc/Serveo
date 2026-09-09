@@ -1,9 +1,10 @@
 "use client";
 
-import { CalendarRange } from "lucide-react";
+import { startOfDay } from "date-fns";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/date-range-picker";
 import {
   resolvePeriodSelection,
   toDateInputValue,
@@ -20,52 +21,14 @@ const PRESETS: { key: PeriodPreset; label: string; short: string }[] = [
 ];
 
 function selectPreset(preset: PeriodPreset): PeriodSelection {
-  return { preset };
-}
-
-function DateRangeField({
-  fromValue,
-  toValue,
-  onFromChange,
-  onToChange,
-  className,
-}: {
-  fromValue: string;
-  toValue: string;
-  onFromChange: (value: string) => void;
-  onToChange: (value: string) => void;
-  className?: string;
-}) {
-  const inputClass =
-    "h-full min-w-0 flex-1 border-0 bg-transparent px-2 font-figures text-sm text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-40 hover:[&::-webkit-calendar-picker-indicator]:opacity-70";
-
-  return (
-    <div
-      className={cn(
-        "flex h-9 items-stretch overflow-hidden rounded-md border border-input bg-background",
-        className
-      )}
-    >
-      <div className="flex items-center border-r border-input px-2.5 text-muted-foreground">
-        <CalendarRange className="size-3.5" strokeWidth={2} />
-      </div>
-      <input
-        type="date"
-        value={fromValue}
-        onChange={(e) => onFromChange(e.target.value)}
-        aria-label="Date de début"
-        className={inputClass}
-      />
-      <span className="flex items-center px-1 text-xs text-muted-foreground/70">→</span>
-      <input
-        type="date"
-        value={toValue}
-        onChange={(e) => onToChange(e.target.value)}
-        aria-label="Date de fin"
-        className={cn(inputClass, "pr-2")}
-      />
-    </div>
-  );
+  // Matérialise l'intervalle résolu pour que le date picker affiche
+  // immédiatement les bornes du preset (tout en gardant le preset actif).
+  const { from, to } = resolvePeriodSelection({ preset });
+  return {
+    preset,
+    customFrom: toDateInputValue(from),
+    customTo: toDateInputValue(to),
+  };
 }
 
 function PresetSegment({
@@ -124,16 +87,25 @@ export function PeriodSelector({
 }) {
   const isCustom = value.preset === "custom";
   const { from, to } = resolvePeriodSelection(value);
-  const fromValue = toDateInputValue(from);
-  const toValue = toDateInputValue(to);
+  const today = startOfDay(new Date());
 
-  function updateFrom(nextFrom: string) {
-    onChange({ preset: "custom", customFrom: nextFrom, customTo: toValue });
+  function applyCustomRange(range: { from: Date; to: Date }) {
+    onChange({
+      preset: "custom",
+      customFrom: toDateInputValue(range.from),
+      customTo: toDateInputValue(range.to),
+    });
   }
 
-  function updateTo(nextTo: string) {
-    onChange({ preset: "custom", customFrom: fromValue, customTo: nextTo });
-  }
+  const rangePicker = (
+    <DateRangePicker
+      from={from}
+      to={to}
+      onChange={applyCustomRange}
+      maxDate={today}
+      className="w-full md:w-auto md:min-w-[16rem]"
+    />
+  );
 
   if (layout === "bar") {
     return (
@@ -147,7 +119,11 @@ export function PeriodSelector({
             value={isCustom ? "custom" : value.preset}
             onValueChange={(v) => {
               if (v === "custom") {
-                onChange({ preset: "custom", customFrom: fromValue, customTo: toValue });
+                onChange({
+                  preset: "custom",
+                  customFrom: toDateInputValue(from),
+                  customTo: toDateInputValue(to),
+                });
               } else {
                 onChange(selectPreset(v as PeriodPreset));
               }
@@ -169,13 +145,7 @@ export function PeriodSelector({
 
         <div className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
 
-        <DateRangeField
-          fromValue={fromValue}
-          toValue={toValue}
-          onFromChange={updateFrom}
-          onToChange={updateTo}
-          className="w-full md:w-auto md:min-w-[19rem]"
-        />
+        {rangePicker}
       </div>
     );
   }
@@ -188,7 +158,11 @@ export function PeriodSelector({
             value={isCustom ? "custom" : value.preset}
             onValueChange={(v) => {
               if (v === "custom") {
-                onChange({ preset: "custom", customFrom: fromValue, customTo: toValue });
+                onChange({
+                  preset: "custom",
+                  customFrom: toDateInputValue(from),
+                  customTo: toDateInputValue(to),
+                });
               } else {
                 onChange(selectPreset(v as PeriodPreset));
               }
@@ -210,12 +184,12 @@ export function PeriodSelector({
 
         <PresetSegment value={value} onChange={onChange} className="hidden sm:inline-flex" />
 
-        <DateRangeField
-          fromValue={fromValue}
-          toValue={toValue}
-          onFromChange={updateFrom}
-          onToChange={updateTo}
-          className="w-full sm:w-auto sm:min-w-[19rem]"
+        <DateRangePicker
+          from={from}
+          to={to}
+          onChange={applyCustomRange}
+          maxDate={today}
+          className="w-full sm:w-auto sm:min-w-[16rem]"
         />
       </div>
     </div>

@@ -28,6 +28,7 @@ export function StatCard({
   value,
   icon: Icon,
   tone = "default",
+  hint,
   deltaPct,
   deltaLabel = "vs periode precedente",
   upIsGood = true,
@@ -39,6 +40,8 @@ export function StatCard({
   value: string;
   icon?: LucideIcon;
   tone?: Tone;
+  /** Sous-libellé explicatif (ex. définition d'un KPI). */
+  hint?: string;
   deltaPct?: number | null;
   deltaLabel?: string;
   upIsGood?: boolean;
@@ -56,9 +59,12 @@ export function StatCard({
         style={style}
       >
         <div className="flex items-start justify-between gap-3">
-          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            {label}
-          </p>
+          <div>
+            <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              {label}
+            </p>
+            {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+          </div>
           {Icon && <Icon className="size-5 text-primary" strokeWidth={1.75} />}
         </div>
         <div className="mt-6">
@@ -85,9 +91,12 @@ export function StatCard({
       style={style}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-          {label}
-        </p>
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            {label}
+          </p>
+          {hint && <p className="mt-0.5 text-[11px] text-muted-foreground normal-case tracking-normal">{hint}</p>}
+        </div>
         {Icon && <Icon className="size-4 text-muted-foreground" strokeWidth={1.75} />}
       </div>
       <div>

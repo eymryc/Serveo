@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { count, eq, gte, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { expenses, organizations, products, sales, users } from "@/db/schema";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
@@ -12,6 +12,8 @@ export async function GET() {
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
+
+    const salesMonthActive = and(gte(sales.soldAt, monthStart), isNull(sales.cancelledAt));
 
     const [
       [usersCount],
@@ -30,16 +32,13 @@ export async function GET() {
         .from(organizations)
         .where(eq(organizations.isActive, 1)),
       db.select({ value: count() }).from(products),
-      db
-        .select({ value: count() })
-        .from(sales)
-        .where(gte(sales.soldAt, monthStart)),
+      db.select({ value: count() }).from(sales).where(salesMonthActive),
       db
         .select({
           brut: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
         })
         .from(sales)
-        .where(gte(sales.soldAt, monthStart)),
+        .where(salesMonthActive),
       db
         .select({
           total: sql<string>`coalesce(sum(${expenses.amount}), 0)`,
@@ -57,6 +56,7 @@ export async function GET() {
             from ${sales}
             where ${sales.organizationId} = ${organizations.id}
               and ${sales.soldAt} >= ${monthStart}
+              and ${sales.cancelledAt} is null
           ), 0)`,
           charges: sql<string>`coalesce((
             select sum(${expenses.amount})
@@ -69,6 +69,7 @@ export async function GET() {
             from ${sales}
             where ${sales.organizationId} = ${organizations.id}
               and ${sales.soldAt} >= ${monthStart}
+              and ${sales.cancelledAt} is null
           ), 0)`,
         })
         .from(organizations)

@@ -26,6 +26,9 @@ export type Sale = {
   netAmount: string;
   paymentMethod: string;
   batchId: string | null;
+  cancelledAt?: string | null;
+  cancelledByUserId?: string | null;
+  cancelReason?: string | null;
 };
 
 export type StockMovement = {
@@ -112,7 +115,17 @@ export type RestrictedDashboardData = {
 export type FullDashboardData = {
   restricted: false;
   period: { key: PeriodKey; from: string; to: string; granularity: "hour" | "day" | "month" };
-  revenue: { gross: number; net: number; salesCount: number; avgTicket: number; deltaPct: number | null };
+  revenue: {
+    gross: number;
+    net: number;
+    cogs: number;
+    grossMargin: number;
+    grossMarginPct: number | null;
+    salesCount: number;
+    unitsSold: number;
+    avgTicket: number;
+    deltaPct: number | null;
+  };
   timeSeries: { bucket: string; net: number }[];
   expenses: { total: number; byCategory: { category: string; amount: number; percentage: number }[] };
   revenueByCategory: { category: string; amount: number; percentage: number }[];
@@ -126,7 +139,16 @@ export type FullDashboardData = {
     profit: number;
     marginPct: number | null;
   }[];
-  result: { netProfit: number; marginPct: number | null; goalProgressPct: number | null; monthlyRevenueTarget: number | null };
+  /** Compte de résultat simplifié : CA − COGS − charges. */
+  result: {
+    cogs: number;
+    grossMargin: number;
+    grossMarginPct: number | null;
+    netProfit: number;
+    marginPct: number | null;
+    goalProgressPct: number | null;
+    monthlyRevenueTarget: number | null;
+  };
   stock: { totalValue: number; activeProductsCount: number; alerts: Product[]; alertsCount: number };
 };
 
