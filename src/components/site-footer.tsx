@@ -15,8 +15,7 @@ export function SiteFooter({ androidApkUrl }: Props) {
           {androidApkUrl ? (
             <a
               href={androidApkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              download="serveo.apk"
               className="font-semibold text-primary underline-offset-4 hover:underline"
             >
               App Android

@@ -11,7 +11,7 @@ export function AppDownloadBanner({ href, className }: Props) {
   return (
     <a
       href={href}
-      target="_blank"
+      download="serveo.apk"
       rel="noopener noreferrer"
       className={cn(
         "group inline-flex items-center gap-2.5 text-sm font-semibold tracking-wide text-primary",
