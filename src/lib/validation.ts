@@ -41,6 +41,7 @@ export const createSaleSchema = z.object({
   paymentMethod: z.enum(paymentMethods),
   soldAt: z.coerce.date().optional(),
   batchId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional().nullable(),
 });
 
 export const createStockMovementSchema = z
@@ -79,6 +80,97 @@ export const updateOrganizationSchema = z.object({
   monthlyMarginTargetPct: z.coerce.number().min(0).max(100).optional(),
   defaultStockAlertThreshold: z.coerce.number().int().nonnegative().optional(),
   activePaymentMethods: z.array(z.enum(paymentMethods)).min(1).optional(),
+  memberCanCancelSales: z.coerce.number().int().min(0).max(1).optional(),
+});
+
+export const openCashSessionSchema = z.object({
+  openingFloat: z.coerce.number().nonnegative().default(0),
+  /** Si omis → maintenant. Utile pour ouvrir "en retard" le matin. */
+  openedAt: z.coerce.date().optional(),
+});
+
+export const closeCashSessionSchema = z.object({
+  countedEspeces: z.coerce.number().nonnegative(),
+  countedOrangeMoney: z.coerce.number().nonnegative(),
+  countedMtnMomo: z.coerce.number().nonnegative(),
+  countedWave: z.coerce.number().nonnegative(),
+  countedCarteVirement: z.coerce.number().nonnegative(),
+  note: z.string().max(500).optional(),
+  /** Si omis → maintenant. */
+  closedAt: z.coerce.date().optional(),
+});
+
+export const createCustomerSchema = z.object({
+  name: z.string().min(1).max(200),
+  phone: z.string().max(30).optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  phone: z.string().max(30).nullable().optional(),
+  note: z.string().max(500).nullable().optional(),
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
+});
+
+const repayPaymentMethods = [
+  "especes",
+  "orange_money",
+  "mtn_momo",
+  "wave",
+  "carte_virement",
+] as const;
+
+export const createCustomerPaymentSchema = z.object({
+  amount: z.coerce.number().positive(),
+  paymentMethod: z.enum(repayPaymentMethods),
+  note: z.string().max(500).optional().nullable(),
+  paidAt: z.coerce.date().optional(),
+});
+
+export const createInventorySessionSchema = z.object({
+  note: z.string().max(500).optional().nullable(),
+});
+
+export const updateInventoryCountsSchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        countedQty: z.coerce.number().int().nonnegative(),
+      })
+    )
+    .min(1),
+});
+
+export const createSupplierSchema = z.object({
+  name: z.string().min(1).max(200),
+  phone: z.string().max(30).optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+});
+
+export const updateSupplierSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  phone: z.string().max(30).nullable().optional(),
+  note: z.string().max(500).nullable().optional(),
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
+});
+
+export const createSupplierDeliverySchema = z.object({
+  supplierId: z.string().uuid(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.coerce.number().int().positive(),
+        unitCost: z.coerce.number().nonnegative().default(0),
+      })
+    )
+    .min(1),
+  paidAmount: z.coerce.number().nonnegative().default(0),
+  paymentMethod: z.enum(paymentMethods).optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+  deliveryDate: z.coerce.date().optional(),
 });
 
 export const createCategorySchema = z.object({

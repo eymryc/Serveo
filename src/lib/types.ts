@@ -25,10 +25,163 @@ export type Sale = {
   grossAmount: string;
   netAmount: string;
   paymentMethod: string;
+  customerId?: string | null;
+  cashSessionId?: string | null;
   batchId: string | null;
   cancelledAt?: string | null;
   cancelledByUserId?: string | null;
   cancelReason?: string | null;
+};
+
+export type CashMethodTotals = {
+  especes: number;
+  orange_money: number;
+  mtn_momo: number;
+  wave: number;
+  carte_virement: number;
+};
+
+export type CashSession = {
+  id: string;
+  organizationId: string;
+  status: "open" | "closed";
+  openedAt: string;
+  closedAt: string | null;
+  openedByUserId: string;
+  closedByUserId: string | null;
+  openingFloat: string;
+  countedEspeces: string | null;
+  countedOrangeMoney: string | null;
+  countedMtnMomo: string | null;
+  countedWave: string | null;
+  countedCarteVirement: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+export type CashSessionSummary = {
+  session: CashSession;
+  expectedByMethod: CashMethodTotals;
+  countedByMethod: CashMethodTotals | null;
+  variances: CashMethodTotals | null;
+};
+
+export type Customer = {
+  id: string;
+  organizationId: string;
+  name: string;
+  phone: string | null;
+  note: string | null;
+  isActive: number;
+  createdAt: string;
+  /** Présent sur la liste API (dette nette ; >0 = client doit). */
+  balance?: number;
+};
+
+export type CustomerLedgerEntry =
+  | {
+      kind: "credit_sale";
+      id: string;
+      amount: number;
+      at: string;
+      paymentMethod: string;
+      batchId: string | null;
+      note: string | null;
+    }
+  | {
+      kind: "payment";
+      id: string;
+      amount: number;
+      at: string;
+      paymentMethod: string;
+      note: string | null;
+    };
+
+export type CustomerPayment = {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  amount: string;
+  paymentMethod: string;
+  note: string | null;
+  paidAt: string;
+  cashSessionId: string | null;
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type InventorySession = {
+  id: string;
+  organizationId: string;
+  status: "draft" | "completed";
+  note: string | null;
+  createdByUserId: string;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type InventoryLine = {
+  id: string;
+  sessionId: string;
+  productId: string;
+  productName?: string;
+  theoreticalQty: number;
+  countedQty: number;
+  variance: number;
+};
+
+export type Supplier = {
+  id: string;
+  organizationId: string;
+  name: string;
+  phone: string | null;
+  note: string | null;
+  isActive: number;
+  createdAt: string;
+};
+
+export type SupplierDelivery = {
+  id: string;
+  organizationId: string;
+  supplierId: string;
+  supplierName?: string;
+  deliveryDate: string;
+  note: string | null;
+  totalAmount: string;
+  paidAmount: string;
+  paymentMethod: string | null;
+  stockBatchId: string | null;
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type SupplierDeliveryLine = {
+  id: string;
+  deliveryId: string;
+  productId: string;
+  quantity: number;
+  unitCost: string;
+};
+
+export type SaleTicket = {
+  organizationName: string;
+  currency: string;
+  batchId: string;
+  soldAt: string;
+  paymentMethod: string;
+  customerId: string | null;
+  customerName?: string | null;
+  cancelledAt: string | null;
+  lines: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    grossAmount: number;
+    netAmount: number;
+  }[];
+  totals: { gross: number; discount: number; net: number };
 };
 
 export type StockMovement = {
@@ -82,6 +235,7 @@ export type Organization = {
   monthlyMarginTargetPct: string | null;
   defaultStockAlertThreshold: number;
   activePaymentMethods: string[];
+  memberCanCancelSales: number;
 };
 
 export type TeamMember = {

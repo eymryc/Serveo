@@ -38,6 +38,7 @@ export default function ParametresPage() {
           currency: org.currency,
           monthlyRevenueTarget: org.monthlyRevenueTarget ? Number(org.monthlyRevenueTarget) : undefined,
           defaultStockAlertThreshold: org.defaultStockAlertThreshold,
+          memberCanCancelSales: org.memberCanCancelSales,
         }),
       });
       setOrg(organization);
@@ -146,6 +147,31 @@ export default function ParametresPage() {
                     />
                   </Field>
                 </div>
+              </section>
+
+              <section className="space-y-3 border-t border-border pt-5">
+                <SectionLabel>Droits barman</SectionLabel>
+                <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 accent-primary"
+                    checked={org.memberCanCancelSales === 1}
+                    onChange={(e) =>
+                      setOrg({
+                        ...org,
+                        memberCanCancelSales: e.target.checked ? 1 : 0,
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">
+                      Autoriser l&apos;annulation de ventes
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Si desactive, seuls les gerants peuvent annuler une facture (web et mobile).
+                    </span>
+                  </span>
+                </label>
               </section>
             </div>
           </form>

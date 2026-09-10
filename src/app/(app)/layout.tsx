@@ -14,13 +14,17 @@ const NAV_GROUPS: { label: string; items: (NavItem & { adminOnly: boolean })[] }
     items: [
       { href: "/app", label: "Tableau de bord", icon: "dashboard", adminOnly: false },
       { href: "/app/ventes", label: "Ventes", icon: "ventes", adminOnly: false },
+      { href: "/app/caisse", label: "Caisse", icon: "caisse", adminOnly: false },
       { href: "/app/stock", label: "Stock", icon: "stock", adminOnly: false },
+      { href: "/app/clients", label: "Clients credit", icon: "clients", adminOnly: false },
     ],
   },
   {
     label: "Gestion",
     items: [
       { href: "/app/articles", label: "Articles", icon: "articles", adminOnly: true },
+      { href: "/app/inventaire", label: "Inventaire", icon: "inventaire", adminOnly: true },
+      { href: "/app/fournisseurs", label: "Fournisseurs", icon: "fournisseurs", adminOnly: true },
       { href: "/app/charges", label: "Charges", icon: "charges", adminOnly: true },
       { href: "/app/rapports", label: "Rapports", icon: "rapports", adminOnly: true },
     ],

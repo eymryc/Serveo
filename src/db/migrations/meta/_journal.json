@@ -50,6 +50,20 @@
       "when": 1785770000000,
       "tag": "0006_sales_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785771000000,
+      "tag": "0007_ops_caisse_credit_inventaire",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785772000000,
+      "tag": "0008_ops_unique_open_sessions",
+      "breakpoints": true
     }
   ]
 }

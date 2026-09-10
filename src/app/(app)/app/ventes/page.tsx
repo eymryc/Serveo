@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { ChevronDown, ChevronUp, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
+import { printSaleTicket } from "@/lib/print-sale-ticket";
 import { DEFAULT_PERIOD_SELECTION, resolvePeriodSelection } from "@/lib/dashboard-math";
 import {
   PAYMENT_METHOD_LABELS,
+  type Customer,
   type Organization,
   type PeriodKey,
   type PeriodSelection,
   type Product,
   type Sale,
+  type SaleTicket,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -185,8 +189,11 @@ function groupContentLabel(group: SaleGroup, products: Product[]) {
 }
 
 export default function VentesPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [activePaymentMethods, setActivePaymentMethods] = useState<string[]>(
     Object.keys(PAYMENT_METHOD_LABELS)
   );
@@ -194,6 +201,7 @@ export default function VentesPage() {
   const [selectedTicket, setSelectedTicket] = useState<SaleGroup | null>(null);
   const [cancelTarget, setCancelTarget] = useState<SaleGroup | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [mainTab, setMainTab] = useState("caisse");
   const [historyPeriod, setHistoryPeriod] = useState<PeriodSelection>(DEFAULT_PERIOD_SELECTION);
 
@@ -203,6 +211,8 @@ export default function VentesPage() {
   const [historyPageSize, setHistoryPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [cart, setCart] = useState<CartLine[]>([emptyLine()]);
   const [paymentMethod, setPaymentMethod] = useState("especes");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerId, setCustomerId] = useState("");
   const [soldDate, setSoldDate] = useState(() => startOfDay(new Date()));
   const [recapExpanded, setRecapExpanded] = useState(false);
 
@@ -231,6 +241,7 @@ export default function VentesPage() {
   useEffect(() => {
     loadProducts();
     apiFetch<{ organization: Organization }>("/api/v1/organization").then((d) => {
+      setOrganization(d.organization);
       setActivePaymentMethods(d.organization.activePaymentMethods);
       setPaymentMethod((prev) =>
         d.organization.activePaymentMethods.includes(prev)
@@ -238,7 +249,13 @@ export default function VentesPage() {
           : d.organization.activePaymentMethods[0]
       );
     });
+    apiFetch<{ customers: Customer[] }>("/api/v1/customers")
+      .then((d) => setCustomers(d.customers))
+      .catch(() => setCustomers([]));
   }, []);
+
+  const canCancelSales =
+    isAdmin || (organization?.memberCanCancelSales ?? 1) === 1;
 
   useEffect(() => {
     loadSales(historyPeriod);
@@ -343,6 +360,11 @@ export default function VentesPage() {
       return;
     }
 
+    if (paymentMethod === "credit_client" && !customerId) {
+      toast.error("Choisissez un client pour une vente a credit");
+      return;
+    }
+
     const batchId = crypto.randomUUID();
     const soldAt = dateToSoldAt(soldDate);
     setSubmitting(true);
@@ -359,6 +381,7 @@ export default function VentesPage() {
               paymentMethod,
               batchId,
               ...(soldAt ? { soldAt } : {}),
+              ...(paymentMethod === "credit_client" ? { customerId } : {}),
             }),
           });
         } catch {
@@ -405,6 +428,21 @@ export default function VentesPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handlePrintTicket() {
+    if (!selectedTicket) return;
+    setPrinting(true);
+    try {
+      const { ticket } = await apiFetch<{ ticket: SaleTicket }>(
+        `/api/v1/sales/${selectedTicket.key}/ticket`
+      );
+      printSaleTicket(ticket);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Impossible d'ouvrir le ticket");
+    } finally {
+      setPrinting(false);
     }
   }
 
@@ -672,6 +710,24 @@ export default function VentesPage() {
                             );
                           })}
                         </div>
+                        {paymentMethod === "credit_client" && (
+                          <div className="space-y-1.5 pt-1">
+                            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                              Client
+                            </p>
+                            <SearchableSelect
+                              value={customerId}
+                              onValueChange={setCustomerId}
+                              placeholder="Choisir un client…"
+                              emptyText="Aucun client — creez-en un dans Clients credit"
+                              options={customers.map((c) => ({
+                                value: c.id,
+                                label: c.name,
+                                description: c.phone ?? undefined,
+                              }))}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -951,6 +1007,16 @@ export default function VentesPage() {
                     {formatFcfa(selectedTicket.total)}
                   </span>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handlePrintTicket}
+                  disabled={printing}
+                >
+                  <Receipt className="size-4" />
+                  {printing ? "Preparation…" : "Imprimer / ticket"}
+                </Button>
                 {selectedTicket.cancelled ? (
                   <p className="text-xs text-muted-foreground">
                     Facture annulee
@@ -964,7 +1030,7 @@ export default function VentesPage() {
                       : ""}
                     . Le stock a ete remis.
                   </p>
-                ) : (
+                ) : canCancelSales ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -973,6 +1039,10 @@ export default function VentesPage() {
                   >
                     Annuler la facture
                   </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    L&apos;annulation est reservee au gerant.
+                  </p>
                 )}
               </div>
             </>

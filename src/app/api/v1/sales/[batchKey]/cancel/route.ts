@@ -12,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ batchKey: string }> }
 ) {
   try {
-    const { organizationId, userId } = await requireTenant();
+    const { organizationId, userId, orgRole } = await requireTenant();
     const { batchKey } = await params;
     const raw = await req.json().catch(() => ({}));
     const body = bodySchema.parse(raw ?? {});
@@ -22,6 +22,7 @@ export async function POST(
       userId,
       batchKey,
       reason: body.reason,
+      orgRole,
     });
 
     return NextResponse.json({ sales: cancelled }, { status: 201 });

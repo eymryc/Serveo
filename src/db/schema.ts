@@ -38,6 +38,8 @@ export const organizations = pgTable("organizations", {
   paystackCustomerCode: text("paystack_customer_code"),
   // Soft-disable par le super-admin plateforme (le bar reste en base).
   isActive: integer("is_active").notNull().default(1),
+  // Droit barman : annuler une vente (sinon reserve au gerant).
+  memberCanCancelSales: integer("member_can_cancel_sales").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -154,6 +156,48 @@ export const products = pgTable("products", {
 
 export const paymentMethodEnum = pgEnum("payment_method", paymentMethodValues);
 
+// Clients a credit (carnet de dettes) — distinct des users/equipe.
+export const customers = pgTable("customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  note: text("note"),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("customers_org_idx").on(t.organizationId)]);
+
+// Session de caisse = service / shift : fond d'ouverture + clôture avec
+// comptages par moyen de paiement (especes, MoMo…). Une seule session
+// ouverte a la fois par bar.
+export const cashSessionStatusEnum = pgEnum("cash_session_status", ["open", "closed"]);
+
+export const cashSessions = pgTable("cash_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  status: cashSessionStatusEnum("status").notNull().default("open"),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  openedByUserId: text("opened_by_user_id").notNull(),
+  closedByUserId: text("closed_by_user_id"),
+  // Fond de caisse (especes) au demarrage du service.
+  openingFloat: numeric("opening_float", { precision: 12, scale: 2 }).notNull().default("0"),
+  // Comptages saisis a la cloture (null tant que session ouverte).
+  countedEspeces: numeric("counted_especes", { precision: 12, scale: 2 }),
+  countedOrangeMoney: numeric("counted_orange_money", { precision: 12, scale: 2 }),
+  countedMtnMomo: numeric("counted_mtn_momo", { precision: 12, scale: 2 }),
+  countedWave: numeric("counted_wave", { precision: 12, scale: 2 }),
+  countedCarteVirement: numeric("counted_carte_virement", { precision: 12, scale: 2 }),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("cash_sessions_org_status_idx").on(t.organizationId, t.status),
+]);
+
 export const sales = pgTable("sales", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -169,6 +213,11 @@ export const sales = pgTable("sales", {
   grossAmount: numeric("gross_amount", { precision: 12, scale: 2 }).notNull(),
   netAmount: numeric("net_amount", { precision: 12, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  // Obligatoire si paymentMethod = credit_client.
+  customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  // Session de caisse active au moment de la vente (peut etre null si
+  // aucune session ouverte — les ventes restent possibles).
+  cashSessionId: uuid("cash_session_id").references(() => cashSessions.id, { onDelete: "set null" }),
   createdByUserId: text("created_by_user_id").notNull(),
   // Etiquette partagee par toutes les lignes d'un meme encaissement
   // multi-articles — pour les regrouper comme une facture a l'affichage.
@@ -181,6 +230,29 @@ export const sales = pgTable("sales", {
 }, (t) => [
   index("sales_org_soldat_idx").on(t.organizationId, t.soldAt),
   index("sales_batch_idx").on(t.batchId),
+  index("sales_customer_idx").on(t.customerId),
+  index("sales_cash_session_idx").on(t.cashSessionId),
+]);
+
+// Encaissements de dettes clients (remboursements credit).
+export const customerPayments = pgTable("customer_payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  note: text("note"),
+  paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+  cashSessionId: uuid("cash_session_id").references(() => cashSessions.id, { onDelete: "set null" }),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("customer_payments_org_idx").on(t.organizationId),
+  index("customer_payments_customer_idx").on(t.customerId),
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -236,3 +308,84 @@ export const expenses = pgTable("expenses", {
 }, (t) => [
   index("expenses_org_date_idx").on(t.organizationId, t.expenseDate),
 ]);
+
+// Inventaire physique : session de comptage puis ecriture des ecarts.
+export const inventorySessionStatusEnum = pgEnum("inventory_session_status", [
+  "draft",
+  "completed",
+]);
+
+export const inventorySessions = pgTable("inventory_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  status: inventorySessionStatusEnum("status").notNull().default("draft"),
+  note: text("note"),
+  createdByUserId: text("created_by_user_id").notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("inventory_sessions_org_idx").on(t.organizationId)]);
+
+export const inventoryLines = pgTable("inventory_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => inventorySessions.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  theoreticalQty: integer("theoretical_qty").notNull(),
+  countedQty: integer("counted_qty").notNull(),
+  // counted - theoretical (negatif = manque)
+  variance: integer("variance").notNull(),
+}, (t) => [
+  index("inventory_lines_session_idx").on(t.sessionId),
+]);
+
+// Fournisseurs + livraisons (receptions de stock avec cout).
+export const suppliers = pgTable("suppliers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  note: text("note"),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("suppliers_org_idx").on(t.organizationId)]);
+
+export const supplierDeliveries = pgTable("supplier_deliveries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  supplierId: uuid("supplier_id")
+    .notNull()
+    .references(() => suppliers.id, { onDelete: "restrict" }),
+  deliveryDate: timestamp("delivery_date", { withTimezone: true }).notNull().defaultNow(),
+  note: text("note"),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  paymentMethod: paymentMethodEnum("payment_method"),
+  // batchId des mouvements de stock generes par cette livraison.
+  stockBatchId: uuid("stock_batch_id"),
+  createdByUserId: text("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("supplier_deliveries_org_idx").on(t.organizationId),
+  index("supplier_deliveries_supplier_idx").on(t.supplierId),
+]);
+
+export const supplierDeliveryLines = pgTable("supplier_delivery_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deliveryId: uuid("delivery_id")
+    .notNull()
+    .references(() => supplierDeliveries.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "restrict" }),
+  quantity: integer("quantity").notNull(),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+}, (t) => [index("supplier_delivery_lines_delivery_idx").on(t.deliveryId)]);

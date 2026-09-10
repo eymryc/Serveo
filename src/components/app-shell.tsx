@@ -6,14 +6,18 @@ import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/user-menu";
 import {
   BarChart3,
+  ClipboardCheck,
   LayoutDashboard,
   Menu,
   Package,
   Receipt,
   ShoppingCart,
   Tags,
+  Truck,
   Users,
   Settings,
+  Wallet,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,7 +29,11 @@ import { ImpersonationBanner } from "@/components/impersonation-banner";
 const ICONS = {
   dashboard: LayoutDashboard,
   ventes: ShoppingCart,
+  caisse: Wallet,
+  clients: UserRound,
   articles: Tags,
+  inventaire: ClipboardCheck,
+  fournisseurs: Truck,
   stock: Package,
   charges: Receipt,
   rapports: BarChart3,
