@@ -11,6 +11,7 @@ const HEIGHTS = {
   md: "h-8",
   lg: "h-10",
   xl: "h-12",
+  "2xl": "h-14",
 } as const;
 
 export function LogoMark({

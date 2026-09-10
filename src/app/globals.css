@@ -314,6 +314,52 @@
     animation: hero-cursor-blink 0.95s step-end infinite;
   }
 
+  @keyframes landing-ken {
+    from {
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+    to {
+      transform: scale(1.07) translate3d(-1.2%, -0.6%, 0);
+    }
+  }
+
+  @keyframes landing-reveal {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .landing-hero-image {
+    transform-origin: 62% 42%;
+    will-change: transform;
+  }
+
+  .landing-reveal {
+    animation: landing-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .landing-feature-item {
+    animation: landing-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-hero-image {
+      animation: landing-ken 22s ease-in-out infinite alternate;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-reveal,
+    .landing-feature-item {
+      animation: none;
+    }
+  }
+
   /* intl-tel-input — aligné sur le champ Input shadcn */
   .phone-input.iti {
     --iti-border-color: var(--border);

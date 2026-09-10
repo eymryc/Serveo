@@ -3,57 +3,63 @@ import { cn } from "@/lib/utils";
 
 const FEATURES: {
   icon: LucideIcon;
+  index: string;
   title: string;
   description: string;
-  accent: string;
 }[] = [
   {
     icon: Wallet,
+    index: "01",
     title: "Encaissez partout",
-    description: "Espèces, Orange Money, MTN MoMo, Wave — un seul comptoir, un seul total.",
-    accent: "from-primary/14 to-primary/5",
+    description: "Espèces, Orange Money, MTN MoMo, Wave — un seul total.",
   },
   {
     icon: RefreshCcw,
+    index: "02",
     title: "Stock à jour",
-    description: "Chaque vente met à jour le stock. Fini les écarts le dimanche soir.",
-    accent: "from-primary/10 to-primary/[0.03]",
+    description: "Chaque vente met à jour le stock. Fini les écarts.",
   },
   {
     icon: BellRing,
-    title: "Alertes & bénéfices",
-    description: "Rupture avant qu'il n'y en ait plus. Marges visibles pour le gérant.",
-    accent: "from-primary/16 to-primary/6",
+    index: "03",
+    title: "Alertes & marges",
+    description: "Rupture anticipée. Bénéfices visibles pour le gérant.",
   },
 ];
 
+/** Preuves produit en colonnes éditoriales — pas de cartes. */
 export function LandingFeatureCards({ className }: { className?: string }) {
   return (
-    <ul className={cn("grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4", className)}>
-      {FEATURES.map(({ icon: Icon, title, description, accent }) => (
+    <ul
+      className={cn(
+        "grid grid-cols-1 divide-y divide-border/70 border-y border-border/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0",
+        className
+      )}
+    >
+      {FEATURES.map(({ icon: Icon, index, title, description }, i) => (
         <li
           key={title}
-          className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-white p-5 shadow-[0_1px_2px_oklch(0.22_0.02_165/6%)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_16px_40px_-24px_oklch(0.22_0.02_165/35%)]"
+          className={cn(
+            "landing-feature-item flex gap-4 px-0 py-7 sm:flex-col sm:gap-5 sm:px-6 sm:py-2 sm:first:pl-0 sm:last:pr-0",
+            i === 1 && "sm:[animation-delay:90ms]",
+            i === 2 && "sm:[animation-delay:180ms]"
+          )}
         >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          />
-
-          <div
-            className={cn(
-              "mb-4 flex size-11 items-center justify-center rounded-xl bg-gradient-to-br ring-1 ring-black/[0.04]",
-              accent
-            )}
-          >
-            <Icon
-              className="size-5 text-primary transition-transform duration-300 group-hover:scale-105"
-              strokeWidth={1.75}
-            />
+          <div className="flex items-center gap-3 sm:items-start">
+            <span className="font-figures text-[13px] font-medium tracking-wider text-primary/70">
+              {index}
+            </span>
+            <Icon className="size-5 shrink-0 text-primary sm:hidden" strokeWidth={1.75} />
           </div>
-
-          <h3 className="text-sm font-bold tracking-tight text-foreground">{title}</h3>
-          <p className="mt-2 flex-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+          <div>
+            <div className="mb-3 hidden sm:block">
+              <Icon className="size-5 text-primary" strokeWidth={1.75} />
+            </div>
+            <h3 className="text-[1.05rem] font-bold tracking-tight text-foreground">{title}</h3>
+            <p className="mt-2 max-w-[18rem] text-[0.95rem] leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          </div>
         </li>
       ))}
     </ul>
