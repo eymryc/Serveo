@@ -198,7 +198,7 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
-  /* Curseur pointer sur tout élément cliquable (liens, boutons, etc.). */
+  /* Curseur pointer sur tout élément cliquable (liens, boutons, champs date, etc.). */
   a[href],
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -209,6 +209,10 @@
   [role="switch"]:not([aria-disabled="true"]),
   [role="checkbox"]:not([aria-disabled="true"]),
   [role="radio"]:not([aria-disabled="true"]),
+  [role="combobox"]:not([aria-disabled="true"]),
+  [data-slot="button"]:not(:disabled):not([aria-disabled="true"]),
+  [data-slot="dialog-close"],
+  [data-slot="sheet-close"],
   summary,
   label[for],
   select:not(:disabled),
@@ -218,6 +222,13 @@
   input[type="submit"]:not(:disabled),
   input[type="button"]:not(:disabled),
   input[type="reset"]:not(:disabled),
+  input[type="date"]:not(:disabled),
+  input[type="datetime-local"]:not(:disabled),
+  input[type="time"]:not(:disabled),
+  input[type="month"]:not(:disabled),
+  input[type="week"]:not(:disabled),
+  input[type="color"]:not(:disabled),
+  input[type="range"]:not(:disabled),
   .cursor-pointer {
     cursor: pointer;
   }

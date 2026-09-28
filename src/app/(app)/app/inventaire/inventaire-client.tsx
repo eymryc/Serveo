@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardCheck, Plus, Search } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Eye, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import type { InventoryLine, InventorySession } from "@/lib/types";
@@ -59,6 +59,8 @@ export default function InventairePageClient() {
   const [note, setNote] = useState("");
   const [createDate, setCreateDate] = useState(todayInputValue);
   const [createOpen, setCreateOpen] = useState(false);
+  const [dateEditSession, setDateEditSession] = useState<InventorySession | null>(null);
+  const [listEditDate, setListEditDate] = useState("");
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<InventorySession | null>(null);
@@ -133,20 +135,53 @@ export default function InventairePageClient() {
     }
   }
 
+  function openDateEdit(session: InventorySession) {
+    setDateEditSession(session);
+    setListEditDate(toDateInputValue(session.inventoryDate));
+  }
+
+  async function patchInventoryDate(sessionId: string, inventoryDate: string) {
+    const { session } = await apiFetch<{ session: InventorySession }>(
+      `/api/v1/inventory-sessions/${sessionId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ inventoryDate }),
+      }
+    );
+    return session;
+  }
+
   async function handleSaveDate() {
     if (!activeId || !activeSession || !editDate) return;
     if (toDateInputValue(activeSession.inventoryDate) === editDate) return;
     setSubmitting(true);
     try {
-      const { session } = await apiFetch<{ session: InventorySession }>(
-        `/api/v1/inventory-sessions/${activeId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ inventoryDate: editDate }),
-        }
-      );
+      const session = await patchInventoryDate(activeId, editDate);
       setActiveSession(session);
       setEditDate(toDateInputValue(session.inventoryDate));
+      await loadSessions();
+      toast.success("Date mise a jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise a jour impossible");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveListDate() {
+    if (!dateEditSession || !listEditDate) return;
+    if (toDateInputValue(dateEditSession.inventoryDate) === listEditDate) {
+      setDateEditSession(null);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const session = await patchInventoryDate(dateEditSession.id, listEditDate);
+      if (activeId === session.id) {
+        setActiveSession(session);
+        setEditDate(toDateInputValue(session.inventoryDate));
+      }
+      setDateEditSession(null);
       await loadSessions();
       toast.success("Date mise a jour");
     } catch (err) {
@@ -253,31 +288,70 @@ export default function InventairePageClient() {
         </section>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[480px] text-left text-sm">
+          <table className="w-full min-w-[40rem] table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[28%]" />
+              <col className="w-[16%]" />
+              <col className="w-[38%]" />
+            </colgroup>
             <thead className="border-b border-border bg-muted/40 text-[10px] tracking-wider text-muted-foreground uppercase">
               <tr>
-                <th className="px-3 py-2 font-semibold">Date</th>
-                <th className="px-3 py-2 font-semibold">Note</th>
-                <th className="px-3 py-2 font-semibold">Statut</th>
-                <th className="px-3 py-2 font-semibold">Actions</th>
+                <th className="px-4 py-2.5 font-semibold">Date</th>
+                <th className="px-4 py-2.5 font-semibold">Note</th>
+                <th className="px-4 py-2.5 font-semibold">Statut</th>
+                <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {sessions.map((s) => (
-                <tr key={s.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2.5">{formatDate(s.inventoryDate)}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{s.note || "—"}</td>
-                  <td className="px-3 py-2.5">
+                <tr
+                  key={s.id}
+                  className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
+                >
+                  <td className="px-4 py-3 font-medium whitespace-nowrap tabular-nums">
+                    {formatDate(s.inventoryDate)}
+                  </td>
+                  <td className="truncate px-4 py-3 text-muted-foreground" title={s.note || undefined}>
+                    {s.note || "—"}
+                  </td>
+                  <td className="px-4 py-3">
                     {s.status === "draft" ? (
                       <StatusBadge tone="neutral">Brouillon</StatusBadge>
                     ) : (
                       <StatusBadge tone="good">Cloture</StatusBadge>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <Button variant="ghost" size="sm" onClick={() => openSession(s.id)}>
-                      {s.status === "draft" ? "Continuer" : "Voir"}
-                    </Button>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-nowrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+                        onClick={() => openSession(s.id)}
+                      >
+                        {s.status === "draft" ? (
+                          <>
+                            <ClipboardCheck className="size-3.5" />
+                            Continuer
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="size-3.5" />
+                            Voir
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => openDateEdit(s)}
+                      >
+                        <CalendarDays className="size-3.5" />
+                        Modifier la date
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -285,6 +359,48 @@ export default function InventairePageClient() {
           </table>
         </div>
       )}
+
+      <Dialog
+        open={!!dateEditSession}
+        onOpenChange={(open) => {
+          if (!open) setDateEditSession(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="size-5 text-primary" />
+              Modifier la date
+            </DialogTitle>
+            <DialogDescription>
+              Changez la date metier de l&apos;inventaire. Aucun impact sur le stock.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+            <Label htmlFor="inv-list-date">Date de l&apos;inventaire</Label>
+            <Input
+              id="inv-list-date"
+              type="date"
+              required
+              value={listEditDate}
+              onChange={(e) => setListEditDate(e.target.value)}
+              className="bg-background"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDateEditSession(null)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSaveListDate}
+              disabled={submitting || !listEditDate}
+            >
+              <Pencil className="size-4" />
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -353,21 +469,25 @@ export default function InventairePageClient() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[10rem] flex-1 space-y-1.5">
-              <Label htmlFor="inv-edit-date">Date de l&apos;inventaire</Label>
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="min-w-[12rem] flex-1 space-y-1.5">
+              <Label htmlFor="inv-edit-date" className="flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 text-muted-foreground" />
+                Date de l&apos;inventaire
+              </Label>
               <Input
                 id="inv-edit-date"
                 type="date"
                 value={editDate}
                 onChange={(e) => setEditDate(e.target.value)}
+                className="bg-background"
               />
             </div>
             <Button
-              variant="outline"
               onClick={handleSaveDate}
               disabled={submitting || !dateDirty || !editDate}
             >
+              <Pencil className="size-4" />
               Enregistrer la date
             </Button>
           </div>
@@ -383,13 +503,19 @@ export default function InventairePageClient() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed border-collapse text-sm">
+              <colgroup>
+                <col className="w-[40%]" />
+                <col className="w-[20%]" />
+                <col className="w-[20%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <thead className="sticky top-0 bg-background text-[10px] tracking-wider text-muted-foreground uppercase">
                 <tr>
-                  <th className="py-2 text-left font-semibold">Article</th>
-                  <th className="py-2 text-right font-semibold">Theorique</th>
-                  <th className="py-2 text-right font-semibold">Compte</th>
-                  <th className="py-2 text-right font-semibold">Ecart</th>
+                  <th className="py-2 pr-2 text-left font-semibold">Article</th>
+                  <th className="px-2 py-2 text-right font-semibold">Theorique</th>
+                  <th className="px-2 py-2 text-right font-semibold">Compte</th>
+                  <th className="py-2 pl-2 text-right font-semibold">Ecart</th>
                 </tr>
               </thead>
               <tbody>
@@ -401,9 +527,11 @@ export default function InventairePageClient() {
                       : l.variance;
                   return (
                     <tr key={l.id} className="border-t border-border">
-                      <td className="py-2 pr-2 font-medium">{l.productName}</td>
-                      <td className="py-2 text-right tabular-nums">{l.theoreticalQty}</td>
-                      <td className="py-2 text-right">
+                      <td className="truncate py-2 pr-2 font-medium" title={l.productName}>
+                        {l.productName}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">{l.theoreticalQty}</td>
+                      <td className="px-2 py-2 text-right">
                         {activeSession?.status === "draft" ? (
                           <Input
                             className="ml-auto h-8 w-20 text-right"
@@ -424,7 +552,7 @@ export default function InventairePageClient() {
                       </td>
                       <td
                         className={cn(
-                          "py-2 text-right tabular-nums font-semibold",
+                          "py-2 pl-2 text-right tabular-nums font-semibold",
                           variance !== 0 && "text-amber-700 dark:text-amber-400"
                         )}
                       >
