@@ -11,7 +11,7 @@ export async function listInventorySessions(organizationId: string, limit = 30) 
     .select()
     .from(inventorySessions)
     .where(eq(inventorySessions.organizationId, organizationId))
-    .orderBy(desc(inventorySessions.createdAt))
+    .orderBy(desc(inventorySessions.inventoryDate))
     .limit(limit);
 }
 
@@ -50,6 +50,7 @@ export async function createInventorySession(input: {
   organizationId: string;
   userId: string;
   note?: string | null;
+  inventoryDate?: Date;
 }) {
   const db = getDb();
 
@@ -86,6 +87,7 @@ export async function createInventorySession(input: {
         organizationId: input.organizationId,
         createdByUserId: input.userId,
         note: input.note ?? null,
+        inventoryDate: input.inventoryDate ?? new Date(),
         status: "draft",
       })
       .returning();
@@ -105,6 +107,39 @@ export async function createInventorySession(input: {
 
     return { session, lines };
   });
+}
+
+/** Met à jour la date métier — autorisé même après clôture (pas d'impact stock). */
+export async function updateInventorySessionMeta(
+  organizationId: string,
+  sessionId: string,
+  input: { inventoryDate: Date }
+) {
+  const db = getDb();
+  const [session] = await db
+    .select()
+    .from(inventorySessions)
+    .where(
+      and(
+        eq(inventorySessions.id, sessionId),
+        eq(inventorySessions.organizationId, organizationId)
+      )
+    );
+
+  if (!session) throw new HttpError(404, "Session d'inventaire introuvable");
+
+  const [updated] = await db
+    .update(inventorySessions)
+    .set({ inventoryDate: input.inventoryDate })
+    .where(
+      and(
+        eq(inventorySessions.id, sessionId),
+        eq(inventorySessions.organizationId, organizationId)
+      )
+    )
+    .returning();
+
+  return updated;
 }
 
 export async function updateInventoryCounts(

@@ -64,6 +64,13 @@
       "when": 1785772000000,
       "tag": "0008_ops_unique_open_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785773000000,
+      "tag": "0009_inventory_date",
+      "breakpoints": true
     }
   ]
 }

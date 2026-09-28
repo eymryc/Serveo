@@ -321,11 +321,16 @@ export const inventorySessions = pgTable("inventory_sessions", {
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   status: inventorySessionStatusEnum("status").notNull().default("draft"),
+  // Date métier du comptage (modifiable) — distincte de createdAt / completedAt.
+  inventoryDate: timestamp("inventory_date", { withTimezone: true }).notNull().defaultNow(),
   note: text("note"),
   createdByUserId: text("created_by_user_id").notNull(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("inventory_sessions_org_idx").on(t.organizationId)]);
+}, (t) => [
+  index("inventory_sessions_org_idx").on(t.organizationId),
+  index("inventory_sessions_org_date_idx").on(t.organizationId, t.inventoryDate),
+]);
 
 export const inventoryLines = pgTable("inventory_lines", {
   id: uuid("id").primaryKey().defaultRandom(),

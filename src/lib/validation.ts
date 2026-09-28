@@ -130,18 +130,25 @@ export const createCustomerPaymentSchema = z.object({
 
 export const createInventorySessionSchema = z.object({
   note: z.string().max(500).optional().nullable(),
+  inventoryDate: z.coerce.date().optional(),
 });
 
-export const updateInventoryCountsSchema = z.object({
-  lines: z
-    .array(
-      z.object({
-        productId: z.string().uuid(),
-        countedQty: z.coerce.number().int().nonnegative(),
-      })
-    )
-    .min(1),
-});
+export const updateInventorySessionSchema = z
+  .object({
+    inventoryDate: z.coerce.date().optional(),
+    lines: z
+      .array(
+        z.object({
+          productId: z.string().uuid(),
+          countedQty: z.coerce.number().int().nonnegative(),
+        })
+      )
+      .min(1)
+      .optional(),
+  })
+  .refine((d) => d.inventoryDate !== undefined || (d.lines && d.lines.length > 0), {
+    message: "Au moins inventoryDate ou lines requis",
+  });
 
 export const createSupplierSchema = z.object({
   name: z.string().min(1).max(200),

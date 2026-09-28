@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireTenant, tenantErrorResponse } from "@/lib/tenant";
-import { getInventorySession, updateInventoryCounts } from "@/lib/inventory";
-import { updateInventoryCountsSchema } from "@/lib/validation";
+import {
+  getInventorySession,
+  updateInventoryCounts,
+  updateInventorySessionMeta,
+} from "@/lib/inventory";
+import { updateInventorySessionSchema } from "@/lib/validation";
 
 export async function GET(
   _req: Request,
@@ -26,9 +30,24 @@ export async function PATCH(
     const { organizationId, orgRole } = await requireTenant();
     requireAdmin(orgRole);
     const { id } = await params;
-    const body = updateInventoryCountsSchema.parse(await req.json());
-    const lines = await updateInventoryCounts(organizationId, id, body.lines);
-    return NextResponse.json({ lines });
+    const body = updateInventorySessionSchema.parse(await req.json());
+
+    let session = undefined;
+    if (body.inventoryDate !== undefined) {
+      session = await updateInventorySessionMeta(organizationId, id, {
+        inventoryDate: body.inventoryDate,
+      });
+    }
+
+    let lines = undefined;
+    if (body.lines) {
+      lines = await updateInventoryCounts(organizationId, id, body.lines);
+    }
+
+    return NextResponse.json({
+      ...(session ? { session } : {}),
+      ...(lines ? { lines } : {}),
+    });
   } catch (error) {
     return tenantErrorResponse(error);
   }

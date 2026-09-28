@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       organizationId,
       userId,
       note: body.note,
+      inventoryDate: body.inventoryDate,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

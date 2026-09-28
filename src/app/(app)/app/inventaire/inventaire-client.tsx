@@ -27,6 +27,22 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/data-table";
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toDateInputValue(iso: string) {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString("fr-FR", {
     day: "2-digit",
@@ -41,12 +57,14 @@ export default function InventairePageClient() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [note, setNote] = useState("");
+  const [createDate, setCreateDate] = useState(todayInputValue);
   const [createOpen, setCreateOpen] = useState(false);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<InventorySession | null>(null);
   const [lines, setLines] = useState<InventoryLine[]>([]);
   const [counts, setCounts] = useState<Record<string, string>>({});
+  const [editDate, setEditDate] = useState("");
   const [search, setSearch] = useState("");
   const [dirty, setDirty] = useState(false);
 
@@ -76,6 +94,7 @@ export default function InventairePageClient() {
         `/api/v1/inventory-sessions/${id}`
       );
       setActiveSession(data.session);
+      setEditDate(toDateInputValue(data.session.inventoryDate));
       setLines(data.lines);
       const next: Record<string, string> = {};
       for (const l of data.lines) next[l.productId] = String(l.countedQty);
@@ -95,16 +114,43 @@ export default function InventairePageClient() {
         "/api/v1/inventory-sessions",
         {
           method: "POST",
-          body: JSON.stringify({ note: note.trim() || null }),
+          body: JSON.stringify({
+            note: note.trim() || null,
+            inventoryDate: createDate || undefined,
+          }),
         }
       );
       toast.success("Inventaire demarre");
       setCreateOpen(false);
       setNote("");
+      setCreateDate(todayInputValue());
       await loadSessions();
       await openSession(result.session.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Creation impossible");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveDate() {
+    if (!activeId || !activeSession || !editDate) return;
+    if (toDateInputValue(activeSession.inventoryDate) === editDate) return;
+    setSubmitting(true);
+    try {
+      const { session } = await apiFetch<{ session: InventorySession }>(
+        `/api/v1/inventory-sessions/${activeId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ inventoryDate: editDate }),
+        }
+      );
+      setActiveSession(session);
+      setEditDate(toDateInputValue(session.inventoryDate));
+      await loadSessions();
+      toast.success("Date mise a jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise a jour impossible");
     } finally {
       setSubmitting(false);
     }
@@ -173,6 +219,8 @@ export default function InventairePageClient() {
 
   const varianceCount = lines.filter((l) => l.variance !== 0).length;
   const draft = sessions.find((s) => s.status === "draft");
+  const dateDirty =
+    !!activeSession && toDateInputValue(activeSession.inventoryDate) !== editDate;
 
   return (
     <div className="space-y-6">
@@ -217,7 +265,7 @@ export default function InventairePageClient() {
             <tbody>
               {sessions.map((s) => (
                 <tr key={s.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2.5">{formatWhen(s.createdAt)}</td>
+                  <td className="px-3 py-2.5">{formatDate(s.inventoryDate)}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.note || "—"}</td>
                   <td className="px-3 py-2.5">
                     {s.status === "draft" ? (
@@ -246,20 +294,32 @@ export default function InventairePageClient() {
               Le stock actuel de chaque article actif sera fige comme quantite theorique.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="inv-note">Note (optionnel)</Label>
-            <Input
-              id="inv-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Ex. inventaire mensuel"
-            />
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="inv-date">Date de l&apos;inventaire</Label>
+              <Input
+                id="inv-date"
+                type="date"
+                required
+                value={createDate}
+                onChange={(e) => setCreateDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inv-note">Note (optionnel)</Label>
+              <Input
+                id="inv-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Ex. inventaire mensuel"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCreateOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
+            <Button onClick={handleCreate} disabled={submitting || !createDate}>
               Demarrer
             </Button>
           </DialogFooter>
@@ -280,7 +340,7 @@ export default function InventairePageClient() {
           <SheetHeader>
             <SheetTitle>
               Inventaire{" "}
-              {activeSession ? formatWhen(activeSession.createdAt) : ""}
+              {activeSession ? formatDate(activeSession.inventoryDate) : ""}
             </SheetTitle>
             <SheetDescription>
               {activeSession?.status === "draft"
@@ -292,6 +352,25 @@ export default function InventairePageClient() {
                   }`}
             </SheetDescription>
           </SheetHeader>
+
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[10rem] flex-1 space-y-1.5">
+              <Label htmlFor="inv-edit-date">Date de l&apos;inventaire</Label>
+              <Input
+                id="inv-edit-date"
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleSaveDate}
+              disabled={submitting || !dateDirty || !editDate}
+            >
+              Enregistrer la date
+            </Button>
+          </div>
 
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

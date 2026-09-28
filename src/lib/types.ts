@@ -114,6 +114,7 @@ export type InventorySession = {
   id: string;
   organizationId: string;
   status: "draft" | "completed";
+  inventoryDate: string;
   note: string | null;
   createdByUserId: string;
   completedAt: string | null;
