@@ -29,11 +29,14 @@ export const organizations = pgTable("organizations", {
   city: text("city"),
   country: text("country").default("Cote d'Ivoire"),
   currency: text("currency").notNull().default("FCFA"),
+  // Fuseau IANA du bar (Abidjan = GMT toute l'annee). Les KPI "aujourd'hui"
+  // et les series temporelles tronquent dans ce fuseau, pas en UTC.
+  timezone: text("timezone").notNull().default("Africa/Abidjan"),
   monthlyRevenueTarget: numeric("monthly_revenue_target", { precision: 12, scale: 2 }),
   monthlyMarginTargetPct: numeric("monthly_margin_target_pct", { precision: 5, scale: 2 }),
   defaultStockAlertThreshold: integer("default_stock_alert_threshold").notNull().default(5),
-  // Quels moyens de paiement apparaissent dans les formulaires Ventes/Charges
-  // — evite d'afficher "Wave" a un bar qui ne l'accepte pas.
+  // Cache denormalise des codes actifs (source de verite =
+  // organization_payment_methods). Conserve pour compatibilite mobile.
   activePaymentMethods: text("active_payment_methods")
     .array()
     .notNull()
@@ -233,7 +236,37 @@ export const products = pgTable("products", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("products_org_idx").on(t.organizationId)]);
 
+// Ancien enum Postgres conserve en base pour ne pas casser un restore
+// d'anciennes migrations ; les colonnes metier sont passees en text
+// (cf. migration 0003) pour permettre des moyens propres a chaque pays.
 export const paymentMethodEnum = pgEnum("payment_method", paymentMethodValues);
+
+export const paymentMethodKindValues = [
+  "cash",
+  "mobile_money",
+  "card_transfer",
+  "credit",
+] as const;
+
+export const paymentMethodKindEnum = pgEnum("payment_method_kind", paymentMethodKindValues);
+
+// Catalogue de moyens de paiement du bar : code libre (plus un enum),
+// libelle affiche, nature (especes / MoMo / ...), ordre et activation.
+export const organizationPaymentMethods = pgTable("organization_payment_methods", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  label: text("label").notNull(),
+  kind: paymentMethodKindEnum("kind").notNull().default("cash"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("org_payment_methods_org_code_key").on(t.organizationId, t.code),
+  index("org_payment_methods_org_idx").on(t.organizationId),
+]);
 
 // Clients a credit (carnet de dettes) — distinct des users/equipe.
 export const customers = pgTable("customers", {
@@ -265,7 +298,10 @@ export const cashSessions = pgTable("cash_sessions", {
   closedByUserId: text("closed_by_user_id"),
   // Fond de caisse (especes) au demarrage du service.
   openingFloat: numeric("opening_float", { precision: 12, scale: 2 }).notNull().default("0"),
-  // Comptages saisis a la cloture (null tant que session ouverte).
+  // Comptages a la cloture, cles = codes de moyens de paiement (null si ouverte).
+  countedByMethod: jsonb("counted_by_method").$type<Record<string, string> | null>(),
+  // Colonnes legacy (CI) : encore remplies en mirror de countedByMethod pour
+  // les lecteurs anciens ; ne plus les lire cote app.
   countedEspeces: numeric("counted_especes", { precision: 12, scale: 2 }),
   countedOrangeMoney: numeric("counted_orange_money", { precision: 12, scale: 2 }),
   countedMtnMomo: numeric("counted_mtn_momo", { precision: 12, scale: 2 }),
@@ -292,7 +328,7 @@ export const sales = pgTable("sales", {
   discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
   grossAmount: numeric("gross_amount", { precision: 12, scale: 2 }).notNull(),
   netAmount: numeric("net_amount", { precision: 12, scale: 2 }).notNull(),
-  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  paymentMethod: text("payment_method").notNull(),
   // Obligatoire si paymentMethod = credit_client.
   customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
   // Session de caisse active au moment de la vente (peut etre null si
@@ -328,7 +364,7 @@ export const customerPayments = pgTable("customer_payments", {
     .notNull()
     .references(() => customers.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  paymentMethod: text("payment_method").notNull(),
   note: text("note"),
   paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
   cashSessionId: uuid("cash_session_id").references(() => cashSessions.id, { onDelete: "set null" }),
@@ -384,7 +420,7 @@ export const expenses = pgTable("expenses", {
   label: text("label").notNull(),
   categoryId: uuid("category_id").references(() => expenseCategories.id, { onDelete: "set null" }),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  paymentMethod: text("payment_method").notNull(),
   frequency: text("frequency"),
   remark: text("remark"),
   createdByUserId: uuid("created_by_user_id").notNull(),
@@ -458,7 +494,7 @@ export const supplierDeliveries = pgTable("supplier_deliveries", {
   note: text("note"),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).notNull().default("0"),
-  paymentMethod: paymentMethodEnum("payment_method"),
+  paymentMethod: text("payment_method"),
   // batchId des mouvements de stock generes par cette livraison.
   stockBatchId: uuid("stock_batch_id"),
   createdByUserId: text("created_by_user_id").notNull(),

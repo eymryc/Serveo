@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { organizations, products, sales, stockMovements, customers } from "@/db/schema";
 import { getOpenCashSession } from "@/lib/cash-sessions";
 import { HttpError } from "@/lib/http-errors";
+import { assertPaymentMethodAllowed } from "@/lib/payment-methods";
 
 // Colonnes de vente renvoyees aux clients : le prix d'achat fige revele la
 // marge, il reste cote serveur (meme regle que stripPurchasePrice pour les
@@ -75,6 +76,8 @@ type InsertSaleLinesInput = {
 // negatif. Verrouillage par ordre d'id pour eviter les interblocages entre
 // deux factures qui partagent des articles.
 async function insertSaleLines(tx: Tx, input: InsertSaleLinesInput) {
+  await assertPaymentMethodAllowed(input.organizationId, input.paymentMethod);
+
   if (input.paymentMethod === "credit_client") {
     if (!input.customerId) {
       throw new HttpError(400, "Un client est requis pour une vente a credit");
@@ -145,7 +148,7 @@ async function insertSaleLines(tx: Tx, input: InsertSaleLinesInput) {
         discount: discount.toString(),
         grossAmount: grossAmount.toString(),
         netAmount: netAmount.toString(),
-        paymentMethod: input.paymentMethod as (typeof sales.$inferInsert)["paymentMethod"],
+        paymentMethod: input.paymentMethod,
         customerId: input.paymentMethod === "credit_client" ? (input.customerId ?? null) : null,
         cashSessionId: input.cashSessionId,
         createdByUserId: input.userId,

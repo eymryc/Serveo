@@ -10,6 +10,7 @@ import {
 } from "@/lib/categories";
 import { HttpError } from "@/lib/http-errors";
 import { addMembership } from "@/lib/memberships";
+import { seedDefaultPaymentMethods } from "@/lib/payment-methods";
 
 // Cree le bar (organisation) du compte courant, avec des categories de
 // depart (modifiables ensuite dans Parametres) pour eviter un ecran vide au
@@ -37,6 +38,7 @@ export async function createOrganizationForUser(userId: string, name: string) {
       DEFAULT_PACKAGE_LABELS.map((name) => ({ organizationId: org.id, name }))
     );
 
+    await seedDefaultPaymentMethods(tx, org.id);
     await addMembership(tx, { userId, organizationId: org.id, role: "admin", makeActive: true });
 
     return org;

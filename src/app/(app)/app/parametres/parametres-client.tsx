@@ -13,6 +13,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CategoryManager } from "@/components/category-manager";
 import { PaymentMethodsManager } from "@/components/payment-methods-manager";
 import { PageHeader } from "@/components/page-header";
+import { ALLOWED_TIMEZONES } from "@/lib/validation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const TIMEZONE_LABELS: Record<(typeof ALLOWED_TIMEZONES)[number], string> = {
+  "Africa/Abidjan": "Abidjan (GMT)",
+  "Africa/Dakar": "Dakar (GMT)",
+  "Africa/Bamako": "Bamako (GMT)",
+  "Africa/Ouagadougou": "Ouagadougou (GMT)",
+  "Africa/Lome": "Lome (GMT)",
+  "Africa/Accra": "Accra (GMT)",
+  "Africa/Lagos": "Lagos (GMT+1)",
+  "Africa/Douala": "Douala (GMT+1)",
+  "Africa/Libreville": "Libreville (GMT+1)",
+  "Africa/Kinshasa": "Kinshasa (GMT+1)",
+  UTC: "UTC",
+};
 
 export default function ParametresPage() {
   const [org, setOrg] = useState<Organization | null>(null);
@@ -36,6 +58,7 @@ export default function ParametresPage() {
           city: org.city,
           country: org.country,
           currency: org.currency,
+          timezone: org.timezone || "Africa/Abidjan",
           monthlyRevenueTarget: org.monthlyRevenueTarget ? Number(org.monthlyRevenueTarget) : undefined,
           defaultStockAlertThreshold: org.defaultStockAlertThreshold,
           memberCanCancelSales: org.memberCanCancelSales,
@@ -119,6 +142,23 @@ export default function ParametresPage() {
                       value={org.city ?? ""}
                       onChange={(e) => setOrg({ ...org, city: e.target.value })}
                     />
+                  </Field>
+                  <Field label="Fuseau horaire">
+                    <Select
+                      value={org.timezone || "Africa/Abidjan"}
+                      onValueChange={(timezone) => setOrg({ ...org, timezone })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALLOWED_TIMEZONES.map((tz) => (
+                          <SelectItem key={tz} value={tz}>
+                            {TIMEZONE_LABELS[tz]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                 </div>
               </section>

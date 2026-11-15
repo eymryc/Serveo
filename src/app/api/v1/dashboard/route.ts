@@ -5,6 +5,7 @@ import { expenseCategories, expenses, organizations, productCategories, products
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { stripPurchasePrice } from "@/lib/products";
 import { activeSalesOnly } from "@/lib/sales";
+import { ALLOWED_TIMEZONES } from "@/lib/validation";
 import {
   computeAvgTicket,
   computeDeltaPct,
@@ -150,16 +151,14 @@ export async function GET(req: NextRequest) {
         )
       );
 
-    // Serie temporelle du CA net pour la courbe — granularite adaptee a la
-    // periode (heure pour "aujourd'hui", jour pour semaine/mois, mois pour
-    // l'annee). Cote d'Ivoire = UTC+0 toute l'annee donc pas de conversion
-    // de fuseau necessaire entre date_trunc (UTC) et l'heure locale.
-    const bucketExpr =
-      granularity === "hour"
-        ? sql<string>`date_trunc('hour', ${sales.soldAt})`
-        : granularity === "month"
-          ? sql<string>`date_trunc('month', ${sales.soldAt})`
-          : sql<string>`date_trunc('day', ${sales.soldAt})`;
+    // Serie temporelle du CA net — tronquee dans le fuseau du bar
+    // (ex. Africa/Douala), pas en UTC. tz vient d'une liste fermee.
+    const tz =
+      org?.timezone && (ALLOWED_TIMEZONES as readonly string[]).includes(org.timezone)
+        ? org.timezone
+        : "Africa/Abidjan";
+    const truncUnit = granularity === "hour" ? "hour" : granularity === "month" ? "month" : "day";
+    const bucketExpr = sql<string>`date_trunc(${sql.raw(`'${truncUnit}'`)}, (${sales.soldAt} AT TIME ZONE ${sql.raw(`'${tz}'`)}))`;
 
     const timeSeriesRaw = await db
       .select({

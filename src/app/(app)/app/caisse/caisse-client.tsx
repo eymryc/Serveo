@@ -26,23 +26,13 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { KpiCell, StatusBadge } from "@/components/data-table";
 
-const METHOD_KEYS = [
+const FALLBACK_METHOD_KEYS = [
   "especes",
   "orange_money",
   "mtn_momo",
   "wave",
   "carte_virement",
 ] as const;
-
-type MethodKey = (typeof METHOD_KEYS)[number];
-
-const COUNTED_BODY_KEYS: Record<MethodKey, string> = {
-  especes: "countedEspeces",
-  orange_money: "countedOrangeMoney",
-  mtn_momo: "countedMtnMomo",
-  wave: "countedWave",
-  carte_virement: "countedCarteVirement",
-};
 
 function formatOpenedAt(iso: string) {
   return new Date(iso).toLocaleString("fr-FR", {
@@ -54,7 +44,11 @@ function formatOpenedAt(iso: string) {
 }
 
 function sumTotals(t: CashMethodTotals) {
-  return METHOD_KEYS.reduce((s, k) => s + (t[k] ?? 0), 0);
+  return Object.values(t).reduce((s, v) => s + (v ?? 0), 0);
+}
+
+function methodKeys(summary: CashSessionSummary | null): string[] {
+  return summary?.countableMethods?.length ? summary.countableMethods : [...FALLBACK_METHOD_KEYS];
 }
 
 export default function CaissePageClient() {
@@ -67,13 +61,7 @@ export default function CaissePageClient() {
   const [openingFloat, setOpeningFloat] = useState("0");
   const [openedAtInput, setOpenedAtInput] = useState("");
   const [closedAtInput, setClosedAtInput] = useState("");
-  const [counted, setCounted] = useState<Record<MethodKey, string>>({
-    especes: "",
-    orange_money: "",
-    mtn_momo: "",
-    wave: "",
-    carte_virement: "",
-  });
+  const [counted, setCounted] = useState<Record<string, string>>({});
   const [closeNote, setCloseNote] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CashSessionSummary | null>(null);
@@ -150,10 +138,10 @@ export default function CaissePageClient() {
     if (!openSummary) return;
     setSubmitting(true);
     try {
-      const body: Record<string, number | string> = {};
-      for (const key of METHOD_KEYS) {
-        body[COUNTED_BODY_KEYS[key]] = Number(counted[key]) || 0;
-      }
+      const keys = methodKeys(openSummary);
+      const countedByMethod: Record<string, number> = {};
+      for (const key of keys) countedByMethod[key] = Number(counted[key]) || 0;
+      const body: Record<string, unknown> = { countedByMethod };
       if (closeNote.trim()) body.note = closeNote.trim();
       const closedAt = optionalDateInputToIso(closedAtInput);
       if (closedAt) body.closedAt = closedAt;
@@ -171,13 +159,7 @@ export default function CaissePageClient() {
       setCloseDialog(false);
       setCloseNote("");
       setClosedAtInput("");
-      setCounted({
-        especes: "",
-        orange_money: "",
-        mtn_momo: "",
-        wave: "",
-        carte_virement: "",
-      });
+      setCounted({});
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Impossible de cloturer");
@@ -187,14 +169,10 @@ export default function CaissePageClient() {
   }
 
   function prefillCountedFromExpected() {
-    if (!expected) return;
-    setCounted({
-      especes: String(expected.especes),
-      orange_money: String(expected.orange_money),
-      mtn_momo: String(expected.mtn_momo),
-      wave: String(expected.wave),
-      carte_virement: String(expected.carte_virement),
-    });
+    if (!expected || !openSummary) return;
+    const next: Record<string, string> = {};
+    for (const key of methodKeys(openSummary)) next[key] = String(expected[key] ?? 0);
+    setCounted(next);
   }
 
   return (
@@ -233,11 +211,11 @@ export default function CaissePageClient() {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <KpiCell label="Attendu total" value={formatFcfa(expectedTotal)} />
-            {METHOD_KEYS.map((key) => (
+            {methodKeys(openSummary).map((key) => (
               <KpiCell
                 key={key}
                 label={PAYMENT_METHOD_LABELS[key] ?? key}
-                value={formatFcfa(expected[key])}
+                value={formatFcfa(expected?.[key] ?? 0)}
               />
             ))}
           </div>
@@ -349,10 +327,10 @@ export default function CaissePageClient() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {METHOD_KEYS.map((key) => (
+            {methodKeys(openSummary).map((key) => (
               <div key={key} className="grid grid-cols-[1fr_auto] items-end gap-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor={`c-${key}`}>{PAYMENT_METHOD_LABELS[key]}</Label>
+                  <Label htmlFor={`c-${key}`}>{PAYMENT_METHOD_LABELS[key] ?? key}</Label>
                   <Input
                     id={`c-${key}`}
                     type="number"
@@ -423,16 +401,16 @@ export default function CaissePageClient() {
                   </tr>
                 </thead>
                 <tbody>
-                  {METHOD_KEYS.map((key) => {
-                    const v = detail.variances![key];
+                  {methodKeys(detail).map((key) => {
+                    const v = detail.variances![key] ?? 0;
                     return (
                       <tr key={key} className="border-t border-border">
-                        <td className="py-2">{PAYMENT_METHOD_LABELS[key]}</td>
+                        <td className="py-2">{PAYMENT_METHOD_LABELS[key] ?? key}</td>
                         <td className="py-2 text-right tabular-nums">
-                          {formatFcfa(detail.expectedByMethod[key])}
+                          {formatFcfa(detail.expectedByMethod[key] ?? 0)}
                         </td>
                         <td className="py-2 text-right tabular-nums">
-                          {formatFcfa(detail.countedByMethod![key])}
+                          {formatFcfa(detail.countedByMethod![key] ?? 0)}
                         </td>
                         <td
                           className={cn(

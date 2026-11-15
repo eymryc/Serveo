@@ -1,7 +1,30 @@
 import { z } from "zod";
-import { paymentMethodValues } from "@/db/schema";
+import { paymentMethodKindValues, paymentMethodValues } from "@/db/schema";
 
+// Codes historiques encore utiles pour les labels par defaut cote UI.
 export const paymentMethods = paymentMethodValues;
+
+// Fuseaux utiles Afrique de l'Ouest / Centrale — liste fermee (injection SQL).
+export const ALLOWED_TIMEZONES = [
+  "Africa/Abidjan",
+  "Africa/Dakar",
+  "Africa/Bamako",
+  "Africa/Ouagadougou",
+  "Africa/Lome",
+  "Africa/Accra",
+  "Africa/Lagos",
+  "Africa/Douala",
+  "Africa/Libreville",
+  "Africa/Kinshasa",
+  "UTC",
+] as const;
+
+const paymentMethodCodeSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(40)
+  .regex(/^[a-z0-9_]+$/, "Code de paiement invalide");
 
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
@@ -38,7 +61,7 @@ export const createSaleSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.coerce.number().int().positive(),
   discount: z.coerce.number().nonnegative().default(0),
-  paymentMethod: z.enum(paymentMethods),
+  paymentMethod: paymentMethodCodeSchema,
   soldAt: z.coerce.date().optional(),
   batchId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional().nullable(),
@@ -56,7 +79,7 @@ export const createSaleBatchSchema = z.object({
     )
     .min(1)
     .max(100),
-  paymentMethod: z.enum(paymentMethods),
+  paymentMethod: paymentMethodCodeSchema,
   soldAt: z.coerce.date().optional(),
   customerId: z.string().uuid().optional().nullable(),
   // Bar pour lequel la facture a ete saisie (file hors-ligne mobile) : refusee
@@ -86,7 +109,7 @@ export const createExpenseSchema = z.object({
   label: z.string().min(1).max(200),
   categoryId: z.string().uuid().optional().nullable(),
   amount: z.coerce.number().positive(),
-  paymentMethod: z.enum(paymentMethods),
+  paymentMethod: paymentMethodCodeSchema,
   frequency: z.string().max(50).optional(),
   remark: z.string().max(500).optional(),
 });
@@ -96,10 +119,12 @@ export const updateOrganizationSchema = z.object({
   city: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
   currency: z.string().max(10).optional(),
+  timezone: z.enum(ALLOWED_TIMEZONES).optional(),
   monthlyRevenueTarget: z.coerce.number().nonnegative().optional(),
   monthlyMarginTargetPct: z.coerce.number().min(0).max(100).optional(),
   defaultStockAlertThreshold: z.coerce.number().int().nonnegative().optional(),
-  activePaymentMethods: z.array(z.enum(paymentMethods)).min(1).optional(),
+  // Legacy : preferer PATCH /api/v1/payment-methods. Conservé pour l'UI actuelle.
+  activePaymentMethods: z.array(paymentMethodCodeSchema).min(1).optional(),
   memberCanCancelSales: z.coerce.number().int().min(0).max(1).optional(),
 });
 
@@ -109,15 +134,36 @@ export const openCashSessionSchema = z.object({
   openedAt: z.coerce.date().optional(),
 });
 
-export const closeCashSessionSchema = z.object({
-  countedEspeces: z.coerce.number().nonnegative(),
-  countedOrangeMoney: z.coerce.number().nonnegative(),
-  countedMtnMomo: z.coerce.number().nonnegative(),
-  countedWave: z.coerce.number().nonnegative(),
-  countedCarteVirement: z.coerce.number().nonnegative(),
-  note: z.string().max(500).optional(),
-  /** Si omis → maintenant. */
-  closedAt: z.coerce.date().optional(),
+export const closeCashSessionSchema = z
+  .object({
+    // Nouveau format : { especes: 1000, orange_money: 500, ... }
+    countedByMethod: z.record(z.string(), z.coerce.number().nonnegative()).optional(),
+    // Ancien format fixe (APK / UI pas encore migres).
+    countedEspeces: z.coerce.number().nonnegative().optional(),
+    countedOrangeMoney: z.coerce.number().nonnegative().optional(),
+    countedMtnMomo: z.coerce.number().nonnegative().optional(),
+    countedWave: z.coerce.number().nonnegative().optional(),
+    countedCarteVirement: z.coerce.number().nonnegative().optional(),
+    note: z.string().max(500).optional(),
+    /** Si omis → maintenant. */
+    closedAt: z.coerce.date().optional(),
+  })
+  .refine(
+    (v) =>
+      v.countedByMethod !== undefined ||
+      (v.countedEspeces !== undefined &&
+        v.countedOrangeMoney !== undefined &&
+        v.countedMtnMomo !== undefined &&
+        v.countedWave !== undefined &&
+        v.countedCarteVirement !== undefined),
+    { message: "Comptages de caisse requis" }
+  );
+
+export const upsertPaymentMethodSchema = z.object({
+  code: paymentMethodCodeSchema.optional(),
+  label: z.string().trim().min(1).max(80),
+  kind: z.enum(paymentMethodKindValues).default("mobile_money"),
+  isActive: z.coerce.number().int().min(0).max(1).optional(),
 });
 
 export const createCustomerSchema = z.object({
@@ -133,17 +179,11 @@ export const updateCustomerSchema = z.object({
   isActive: z.coerce.number().int().min(0).max(1).optional(),
 });
 
-const repayPaymentMethods = [
-  "especes",
-  "orange_money",
-  "mtn_momo",
-  "wave",
-  "carte_virement",
-] as const;
-
 export const createCustomerPaymentSchema = z.object({
   amount: z.coerce.number().positive(),
-  paymentMethod: z.enum(repayPaymentMethods),
+  paymentMethod: paymentMethodCodeSchema.refine((c) => c !== "credit_client", {
+    message: "Un remboursement ne peut pas etre a credit",
+  }),
   note: z.string().max(500).optional().nullable(),
   paidAt: z.coerce.date().optional(),
 });
@@ -195,7 +235,7 @@ export const createSupplierDeliverySchema = z.object({
     )
     .min(1),
   paidAmount: z.coerce.number().nonnegative().default(0),
-  paymentMethod: z.enum(paymentMethods).optional().nullable(),
+  paymentMethod: paymentMethodCodeSchema.optional().nullable(),
   note: z.string().max(500).optional().nullable(),
   deliveryDate: z.coerce.date().optional(),
 });

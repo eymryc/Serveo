@@ -53,6 +53,12 @@ TEST_DATABASE_URL=postgres://postgres@localhost:5432/serveo_test pnpm test:integ
 ```
 `vitest.config.mts` exclut `*.integration.test.ts`. `vitest.integration.config.mts` redirige `@/db` vers `src/test/integration-db.ts` (driver node-postgres) et **refuse toute URL non locale**. Préparer la base de test : `DATABASE_URL=<url locale> pnpm exec drizzle-kit migrate`. La CI fait tourner les deux suites, avec un service Postgres 16.
 
+## Fuseau horaire & moyens de paiement
+
+- `organizations.timezone` (liste fermée dans `ALLOWED_TIMEZONES`) : les séries du dashboard tronquent dans ce fuseau (`AT TIME ZONE`), pas en UTC.
+- Catalogue par bar : table `organization_payment_methods` (code libre, libellé, kind, actif). Les colonnes `payment_method` sont du **texte**, plus un enum Postgres — un bar au Bénin peut ajouter « Moov Money » sans migration. `active_payment_methods[]` reste un cache dénormalisé pour le mobile.
+- Clôture de caisse : `cash_sessions.counted_by_method` (jsonb). Les colonnes `counted_*` legacy sont encore remplies en miroir.
+
 ## Journal d'audit
 
 `recordAudit()` (`src/lib/audit.ts`) trace les actions sensibles dans `audit_logs` (ajout seul) : annulations de vente, annulations de mouvements de stock, clôtures d'inventaire et de caisse, équipe, paramètres, actions du back-office, impersonation (avec `impersonator_user_id`). Ajouter un appel pour toute nouvelle action sensible. La page gérant `/app/journal` les affiche ; une action faite en impersonation y apparaît comme « Support Serveo ».
