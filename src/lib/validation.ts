@@ -44,6 +44,23 @@ export const createSaleSchema = z.object({
   customerId: z.string().uuid().optional().nullable(),
 });
 
+export const createSaleBatchSchema = z.object({
+  batchId: z.string().uuid(),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.coerce.number().int().positive(),
+        discount: z.coerce.number().nonnegative().default(0),
+      })
+    )
+    .min(1)
+    .max(100),
+  paymentMethod: z.enum(paymentMethods),
+  soldAt: z.coerce.date().optional(),
+  customerId: z.string().uuid().optional().nullable(),
+});
+
 export const createStockMovementSchema = z
   .object({
     type: z.enum(["entry", "adjustment"]),

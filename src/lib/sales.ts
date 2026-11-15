@@ -1,11 +1,17 @@
 import "server-only";
 import { randomUUID } from "crypto";
-import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNull, lte } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { organizations, products, sales, stockMovements, customers } from "@/db/schema";
 import { getOpenCashSession } from "@/lib/cash-sessions";
 import { HttpError } from "@/lib/http-errors";
+
+// Colonnes de vente renvoyees aux clients : le prix d'achat fige revele la
+// marge, il reste cote serveur (meme regle que stripPurchasePrice pour les
+// articles, les barmans lisent aussi ces reponses).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { purchaseUnitPrice: _purchaseUnitPrice, ...publicSaleColumns } = getTableColumns(sales);
 
 export type CreateSaleInput = {
   organizationId: string;
@@ -29,100 +35,209 @@ export type CancelSaleBatchInput = {
   orgRole?: string | null;
 };
 
+export type SaleLineInput = {
+  productId: string;
+  quantity: number;
+  discount: number;
+};
+
+export type CreateSaleBatchInput = {
+  organizationId: string;
+  userId: string;
+  /** Genere cote client et reutilise a chaque nouvelle tentative : sert de cle d'idempotence. */
+  batchId: string;
+  lines: SaleLineInput[];
+  paymentMethod: string;
+  soldAt?: Date;
+  customerId?: string | null;
+};
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+type InsertSaleLinesInput = {
+  organizationId: string;
+  userId: string;
+  lines: SaleLineInput[];
+  paymentMethod: string;
+  soldAt?: Date;
+  batchId?: string;
+  customerId?: string | null;
+  cashSessionId: string | null;
+};
+
 // Une vente cree TOUJOURS son mouvement de stock (sale_exit) dans la meme
 // transaction — c'est le correctif direct du bug du template Sheets ou
-// Ventes et Stock etaient deux feuilles saisies independamment. Extrait de
-// la route pour etre teste directement, sans passer par HTTP.
-export async function createSale(input: CreateSaleInput) {
-  if (input.paymentMethod === "credit_client" && !input.customerId) {
-    throw new HttpError(400, "Un client est requis pour une vente a credit");
+// Ventes et Stock etaient deux feuilles saisies independamment.
+//
+// Les lignes produit sont verrouillees (FOR UPDATE) avant la verification
+// du stock : sans verrou, deux caisses qui vendent la derniere bouteille en
+// meme temps passent toutes les deux le controle et le stock devient
+// negatif. Verrouillage par ordre d'id pour eviter les interblocages entre
+// deux factures qui partagent des articles.
+async function insertSaleLines(tx: Tx, input: InsertSaleLinesInput) {
+  if (input.paymentMethod === "credit_client") {
+    if (!input.customerId) {
+      throw new HttpError(400, "Un client est requis pour une vente a credit");
+    }
+    const [customer] = await tx
+      .select({ id: customers.id, isActive: customers.isActive })
+      .from(customers)
+      .where(
+        and(
+          eq(customers.id, input.customerId),
+          eq(customers.organizationId, input.organizationId)
+        )
+      )
+      .limit(1);
+    if (!customer) {
+      throw new HttpError(404, "Client introuvable");
+    }
+    if (customer.isActive !== 1) {
+      throw new HttpError(409, "Ce client est inactif");
+    }
   }
 
-  const openSession = await getOpenCashSession(input.organizationId);
-  const db = getDb();
+  const requested = new Map<string, number>();
+  for (const line of input.lines) {
+    requested.set(line.productId, (requested.get(line.productId) ?? 0) + line.quantity);
+  }
+  const productIds = [...requested.keys()].sort();
 
-  return db.transaction(async (tx) => {
-    if (input.paymentMethod === "credit_client" && input.customerId) {
-      const [customer] = await tx
-        .select({ id: customers.id, isActive: customers.isActive })
-        .from(customers)
-        .where(
-          and(
-            eq(customers.id, input.customerId),
-            eq(customers.organizationId, input.organizationId)
-          )
-        )
-        .limit(1);
-      if (!customer) {
-        throw new HttpError(404, "Client introuvable");
-      }
-      if (customer.isActive !== 1) {
-        throw new HttpError(409, "Ce client est inactif");
-      }
-    }
+  const locked = await tx
+    .select()
+    .from(products)
+    .where(and(eq(products.organizationId, input.organizationId), inArray(products.id, productIds)))
+    .orderBy(asc(products.id))
+    .for("update");
+  const byId = new Map(locked.map((p) => [p.id, p]));
 
-    const [product] = await tx
-      .select()
-      .from(products)
-      .where(and(eq(products.id, input.productId), eq(products.organizationId, input.organizationId)));
-
+  for (const [productId, quantity] of requested) {
+    const product = byId.get(productId);
     if (!product) {
       throw new HttpError(404, "Article introuvable");
     }
     if (product.isActive !== 1) {
-      throw new HttpError(409, "Cet article est inactif");
+      throw new HttpError(409, `L'article ${product.name} est inactif`);
     }
-    if (product.currentStock < input.quantity) {
-      throw new HttpError(409, "Stock insuffisant pour cette vente");
+    if (product.currentStock < quantity) {
+      throw new HttpError(409, `Stock insuffisant pour ${product.name}`);
     }
+  }
 
+  const soldAt = input.soldAt ?? new Date();
+  const inserted = [];
+  for (const line of input.lines) {
+    const product = byId.get(line.productId)!;
     const unitPrice = Number(product.unitPrice);
-    const grossAmount = unitPrice * input.quantity;
-    const discount = Math.min(Math.max(0, input.discount), grossAmount);
+    const grossAmount = unitPrice * line.quantity;
+    const discount = Math.min(Math.max(0, line.discount), grossAmount);
     const netAmount = grossAmount - discount;
 
     const [sale] = await tx
       .insert(sales)
       .values({
         organizationId: input.organizationId,
-        productId: input.productId,
-        soldAt: input.soldAt ?? new Date(),
+        productId: line.productId,
+        soldAt,
         unitPrice: product.unitPrice,
-        quantity: input.quantity,
+        purchaseUnitPrice: product.purchasePrice,
+        quantity: line.quantity,
         discount: discount.toString(),
         grossAmount: grossAmount.toString(),
         netAmount: netAmount.toString(),
         paymentMethod: input.paymentMethod as (typeof sales.$inferInsert)["paymentMethod"],
         customerId: input.paymentMethod === "credit_client" ? (input.customerId ?? null) : null,
-        cashSessionId: openSession?.id ?? null,
+        cashSessionId: input.cashSessionId,
         createdByUserId: input.userId,
         batchId: input.batchId,
       })
-      .returning();
+      .returning(publicSaleColumns);
 
     await tx.insert(stockMovements).values({
       organizationId: input.organizationId,
-      productId: input.productId,
+      productId: line.productId,
       type: "sale_exit",
-      quantityDelta: -input.quantity,
+      quantityDelta: -line.quantity,
       referenceSaleId: sale.id,
       batchId: input.batchId,
       createdByUserId: input.userId,
     });
 
+    inserted.push(sale);
+  }
+
+  for (const [productId, quantity] of requested) {
     await tx
       .update(products)
-      .set({ currentStock: sql`${products.currentStock} - ${input.quantity}` })
-      .where(eq(products.id, input.productId));
+      .set({ currentStock: sql`${products.currentStock} - ${quantity}` })
+      .where(eq(products.id, productId));
+  }
 
+  return inserted;
+}
+
+// Ancien format (une ligne par requete) — conserve pour les APK deja
+// installes chez les barmans, qui ne savent pas envoyer une facture entiere.
+export async function createSale(input: CreateSaleInput) {
+  const openSession = await getOpenCashSession(input.organizationId);
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const [sale] = await insertSaleLines(tx, {
+      organizationId: input.organizationId,
+      userId: input.userId,
+      lines: [{ productId: input.productId, quantity: input.quantity, discount: input.discount }],
+      paymentMethod: input.paymentMethod,
+      soldAt: input.soldAt,
+      batchId: input.batchId,
+      customerId: input.customerId,
+      cashSessionId: openSession?.id ?? null,
+    });
     return sale;
+  });
+}
+
+// Facture complete en une seule transaction : tout ou rien, plus de facture
+// partielle quand le reseau coupe au milieu. Idempotente sur batchId : si
+// la reponse s'est perdue (3G instable) et que le client renvoie la meme
+// facture, on renvoie les lignes deja creees au lieu de vendre deux fois.
+// Le verrou consultatif serialise deux envois simultanes du meme batchId,
+// qu'un simple SELECT prealable ne suffirait pas a departager.
+export async function createSaleBatch(input: CreateSaleBatchInput) {
+  const openSession = await getOpenCashSession(input.organizationId);
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`sale-batch:${input.organizationId}:${input.batchId}`}, 0))`
+    );
+
+    const existing = await tx
+      .select(publicSaleColumns)
+      .from(sales)
+      .where(and(eq(sales.organizationId, input.organizationId), eq(sales.batchId, input.batchId)));
+    if (existing.length > 0) {
+      return { sales: existing, replayed: true as const };
+    }
+
+    const created = await insertSaleLines(tx, {
+      organizationId: input.organizationId,
+      userId: input.userId,
+      lines: input.lines,
+      paymentMethod: input.paymentMethod,
+      soldAt: input.soldAt,
+      batchId: input.batchId,
+      customerId: input.customerId,
+      cashSessionId: openSession?.id ?? null,
+    });
+    return { sales: created, replayed: false as const };
   });
 }
 
 export async function listSales(organizationId: string, from: Date, to: Date) {
   const db = getDb();
   return db
-    .select()
+    .select(publicSaleColumns)
     .from(sales)
     .where(and(eq(sales.organizationId, organizationId), gte(sales.soldAt, from), lte(sales.soldAt, to)))
     .orderBy(desc(sales.soldAt), desc(sales.createdAt));
@@ -192,7 +307,7 @@ export async function cancelSaleBatch(input: CancelSaleBatchInput) {
           cancelReason: reason,
         })
         .where(and(eq(sales.id, sale.id), isNull(sales.cancelledAt)))
-        .returning();
+        .returning(publicSaleColumns);
 
       if (!updated) {
         throw new HttpError(409, "Cette facture a deja ete annulee");

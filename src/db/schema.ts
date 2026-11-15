@@ -8,6 +8,8 @@ import {
   uuid,
   pgEnum,
   index,
+  uniqueIndex,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 
 export const paymentMethodValues = [
@@ -51,18 +53,25 @@ export const userRoleEnum = pgEnum("user_role", ["admin", "member"]);
 // Equipe.
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  phone: text("phone").notNull().unique(),
+  // Noms de contraintes explicites (users_phone_key, *_fkey) : ce sont ceux
+  // deja presents en prod — les noms par defaut de Drizzle feraient
+  // supprimer/recreer les contraintes a chaque push/generate.
+  phone: text("phone").notNull().unique("users_phone_key"),
   passwordHash: text("password_hash").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+  organizationId: uuid("organization_id"),
   role: userRoleEnum("role").notNull().default("member"),
   // Super-admin plateforme (back-office /admin) — orthogonal au role gérant/barman.
   isPlatformAdmin: integer("is_platform_admin").notNull().default(0),
   // Soft-disable compte (refus de connexion).
   isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("users_org_idx").on(t.organizationId)]);
+}, (t) => [
+  index("users_org_idx").on(t.organizationId),
+  foreignKey({ name: "users_organization_id_fkey", columns: [t.organizationId], foreignColumns: [organizations.id] })
+    .onDelete("set null"),
+]);
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "trialing",
@@ -114,20 +123,24 @@ export const expenseCategories = pgTable("expense_categories", {
 // dans le code.
 export const unitLabels = pgTable("unit_labels", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull(),
   name: text("name").notNull(),
-}, (t) => [index("unit_labels_org_idx").on(t.organizationId)]);
+}, (t) => [
+  index("unit_labels_org_idx").on(t.organizationId),
+  foreignKey({ name: "unit_labels_organization_id_fkey", columns: [t.organizationId], foreignColumns: [organizations.id] })
+    .onDelete("cascade"),
+]);
 
 // Formats d'achat fournisseur (casier, carton...) — meme logique.
 export const packageLabels = pgTable("package_labels", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull(),
   name: text("name").notNull(),
-}, (t) => [index("package_labels_org_idx").on(t.organizationId)]);
+}, (t) => [
+  index("package_labels_org_idx").on(t.organizationId),
+  foreignKey({ name: "package_labels_organization_id_fkey", columns: [t.organizationId], foreignColumns: [organizations.id] })
+    .onDelete("cascade"),
+]);
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -196,6 +209,7 @@ export const cashSessions = pgTable("cash_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("cash_sessions_org_status_idx").on(t.organizationId, t.status),
+  uniqueIndex("cash_sessions_one_open_per_org").on(t.organizationId).where(sql`${t.status} = 'open'`),
 ]);
 
 export const sales = pgTable("sales", {
@@ -218,7 +232,11 @@ export const sales = pgTable("sales", {
   // Session de caisse active au moment de la vente (peut etre null si
   // aucune session ouverte — les ventes restent possibles).
   cashSessionId: uuid("cash_session_id").references(() => cashSessions.id, { onDelete: "set null" }),
-  createdByUserId: text("created_by_user_id").notNull(),
+  // Prix d'achat fige au moment de la vente : la marge d'une vente passee ne
+  // doit pas changer quand le prix fournisseur de l'article evolue. Null
+  // pour les ventes anterieures a ce champ (repli sur le prix courant).
+  purchaseUnitPrice: numeric("purchase_unit_price", { precision: 12, scale: 2 }),
+  createdByUserId: uuid("created_by_user_id").notNull(),
   // Etiquette partagee par toutes les lignes d'un meme encaissement
   // multi-articles — pour les regrouper comme une facture a l'affichage.
   batchId: uuid("batch_id"),
@@ -284,7 +302,7 @@ export const stockMovements = pgTable("stock_movements", {
   // batchId du lot annule — sert a la fois de trace et de garde-fou
   // contre une double annulation.
   reversalOfBatchId: uuid("reversal_of_batch_id"),
-  createdByUserId: text("created_by_user_id").notNull(),
+  createdByUserId: uuid("created_by_user_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("stock_movements_org_product_idx").on(t.organizationId, t.productId),
@@ -303,7 +321,7 @@ export const expenses = pgTable("expenses", {
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   frequency: text("frequency"),
   remark: text("remark"),
-  createdByUserId: text("created_by_user_id").notNull(),
+  createdByUserId: uuid("created_by_user_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("expenses_org_date_idx").on(t.organizationId, t.expenseDate),
@@ -330,6 +348,7 @@ export const inventorySessions = pgTable("inventory_sessions", {
 }, (t) => [
   index("inventory_sessions_org_idx").on(t.organizationId),
   index("inventory_sessions_org_date_idx").on(t.organizationId, t.inventoryDate),
+  uniqueIndex("inventory_sessions_one_draft_per_org").on(t.organizationId).where(sql`${t.status} = 'draft'`),
 ]);
 
 export const inventoryLines = pgTable("inventory_lines", {

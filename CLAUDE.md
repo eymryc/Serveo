@@ -37,13 +37,27 @@ Ne jamais écrire une requête Drizzle sur une table qui a `organizationId` sans
 - Commentaires en français, expliquant le **pourquoi** (contrainte métier, décision d'archi) jamais le quoi — à respecter en continuant sur ce fichier.
 - `import "server-only"` en tête de tout module qui ne doit jamais être bundlé côté client (auth, db, password, tenant...).
 
+## Base de données & migrations
+
+- ⚠️ **`.env.local` pointe sur la base de PRODUCTION** (récupéré depuis Vercel/Neon, vérifié le 2026-11-15 : vrais bars, vraies ventes). Ne jamais lancer de script d'écriture, de seed ni de test avec ce fichier.
+- `src/db/migrations/` repart d'une **baseline** (`0000_baseline.sql`, générée depuis `schema.ts` le 2026-11-15) dont l'empreinte a été vérifiée identique à la prod, et marquée comme appliquée dans `drizzle.__drizzle_migrations` en prod. L'ancien historique (faux : il ne recréait pas la prod) est archivé dans `src/db/migrations-legacy/`, pour mémoire uniquement.
+- Workflow : modifier `schema.ts` → `pnpm db:generate` → relire le SQL → commiter → `pnpm db:migrate` (applique uniquement les nouvelles migrations). **Ne plus utiliser `drizzle-kit push` sur la prod** (script retiré) : il contourne l'historique et peut supprimer des colonnes.
+- La CI vérifie que `schema.ts` et les migrations n'ont pas divergé (`drizzle-kit generate` ne doit rien produire).
+- `pnpm db:inspect` : contrôle en lecture seule de la prod (volumétrie, cohérence stock ↔ mouvements, stocks négatifs). `scripts/db-schema-fingerprint.mjs` : empreinte de schéma pour comparer deux bases.
+
 ## Tests
 
 ```bash
-pnpm test              # unitaire, mocké, rapide — tourne dans la CI
-pnpm test:integration  # tape la vraie base Neon de dev — jamais dans le test par défaut
+pnpm test              # unitaire, mocké, rapide
+TEST_DATABASE_URL=postgres://postgres@localhost:5432/serveo_test pnpm test:integration
 ```
-`vitest.config.mts` exclut explicitement `*.integration.test.ts` ; `vitest.integration.config.mts` cible uniquement ceux-là avec `DATABASE_URL` chargé via `.env.local`. Ne pas fusionner les deux configs — la séparation est volontaire (pas de dépendance DB dans le test par défaut).
+`vitest.config.mts` exclut `*.integration.test.ts`. `vitest.integration.config.mts` redirige `@/db` vers `src/test/integration-db.ts` (driver node-postgres) et **refuse toute URL non locale**. Préparer la base de test : `DATABASE_URL=<url locale> pnpm exec drizzle-kit migrate`. La CI fait tourner les deux suites, avec un service Postgres 16.
+
+## Ventes : invariants à préserver
+
+- `POST /api/v1/sales` accepte `{ batchId, lines[] }` (facture entière : une transaction, tout ou rien, **idempotente sur `batchId`**, que le client réutilise à chaque nouvelle tentative) et l'ancien format une-ligne-par-requête, gardé tant que d'anciens APK circulent.
+- Toute écriture qui vérifie puis modifie `products.current_stock` doit verrouiller la ligne (`.for("update")`). Les tests d'intégration de concurrence échouent sans ce verrou.
+- `sales.purchase_unit_price` fige le prix d'achat à la vente (marge historique stable). Il n'est jamais renvoyé aux clients (`publicSaleColumns` dans `src/lib/sales.ts`).
 
 ## Ce qui a été audité (2026-09-09)
 
@@ -60,7 +74,7 @@ pnpm test:integration  # tape la vraie base Neon de dev — jamais dans le test 
 
 ## CI/CD
 
-Pas de workflow CI avant cette session. Ajouté : [.github/workflows/ci.yml](.github/workflows/ci.yml) — lint + typecheck + `pnpm test` sur push/PR vers `main`. Ne fait **pas** tourner `test:integration` (nécessiterait un secret `DATABASE_URL` pointant vers une base de test dédiée, à mettre en place séparément si souhaité — ne jamais pointer une CI publique vers la base Neon de dev/prod).
+[.github/workflows/ci.yml](.github/workflows/ci.yml) : lint, typecheck, tests unitaires, migrations sur un Postgres de service, contrôle de dérive du schéma, tests d'intégration, build. Le `packageManager` est fixé dans `package.json` (requis par `pnpm/action-setup`).
 
 Déploiement : Vercel, probablement auto-déployé sur push vers `main` (projet lié via `.vercel/project.json`) — vérifier la config de déploiement Vercel (Preview Deployments sur PR notamment) plutôt que de dupliquer cette logique en Actions.
 

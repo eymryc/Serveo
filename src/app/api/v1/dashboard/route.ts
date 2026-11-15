@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
         name: products.name,
         quantity: sql<number>`coalesce(sum(${sales.quantity}), 0)::int`,
         amount: sql<string>`coalesce(sum(${sales.netAmount}), 0)`,
-        cogs: sql<string>`coalesce(sum(${sales.quantity} * coalesce(${products.purchasePrice}, 0)), 0)`,
+        cogs: sql<string>`coalesce(sum(${sales.quantity} * coalesce(${sales.purchaseUnitPrice}, ${products.purchasePrice}, 0)), 0)`,
       })
       .from(sales)
       .innerJoin(products, eq(sales.productId, products.id))

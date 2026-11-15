@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronDown, ChevronUp, Plus, Receipt, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -215,6 +215,7 @@ export default function VentesPage() {
   const [customerId, setCustomerId] = useState("");
   const [soldDate, setSoldDate] = useState(() => startOfDay(new Date()));
   const [recapExpanded, setRecapExpanded] = useState(false);
+  const pendingBatchRef = useRef<{ batchId: string; signature: string } | null>(null);
 
   function loadProducts() {
     apiFetch<{ products: Product[] }>("/api/v1/products")
@@ -365,48 +366,42 @@ export default function VentesPage() {
       return;
     }
 
-    const batchId = crypto.randomUUID();
+    const lines = cartLines.map((line) => ({
+      productId: line.product.id,
+      quantity: line.quantity,
+      discount: line.discount,
+    }));
+    const signature = JSON.stringify({ lines, paymentMethod, customerId, soldDate: soldDate.getTime() });
+    // Meme facture renvoyee apres un echec reseau → meme batchId, pour que le
+    // serveur reconnaisse un renvoi et ne la compte pas deux fois.
+    if (pendingBatchRef.current?.signature !== signature) {
+      pendingBatchRef.current = { batchId: crypto.randomUUID(), signature };
+    }
+    const { batchId } = pendingBatchRef.current;
     const soldAt = dateToSoldAt(soldDate);
     setSubmitting(true);
-    const failedLines: CartLine[] = [];
     try {
-      for (const line of cartLines) {
-        try {
-          await apiFetch("/api/v1/sales", {
-            method: "POST",
-            body: JSON.stringify({
-              productId: line.product.id,
-              quantity: line.quantity,
-              discount: line.discount,
-              paymentMethod,
-              batchId,
-              ...(soldAt ? { soldAt } : {}),
-              ...(paymentMethod === "credit_client" ? { customerId } : {}),
-            }),
-          });
-        } catch {
-          failedLines.push({
-            productId: line.product.id,
-            quantity: line.quantity,
-            discount: line.discount,
-          });
-        }
-      }
-
-      const succeeded = cartLines.length - failedLines.length;
-      if (failedLines.length === 0) {
-        toast.success(`Facture enregistree — ${formatFcfa(grandTotal)}`);
-        setCart([emptyLine()]);
-        setSoldDate(startOfDay(new Date()));
-      } else if (succeeded > 0) {
-        toast.warning(
-          `${succeeded}/${cartLines.length} article(s) enregistres, ${failedLines.length} en erreur`
-        );
-        setCart(failedLines.length > 0 ? failedLines : [emptyLine()]);
-      } else {
-        toast.error("Echec de l'enregistrement — verifiez la connexion et reessayez");
-      }
+      await apiFetch("/api/v1/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          batchId,
+          lines,
+          paymentMethod,
+          ...(soldAt ? { soldAt } : {}),
+          ...(paymentMethod === "credit_client" ? { customerId } : {}),
+        }),
+      });
+      pendingBatchRef.current = null;
+      toast.success(`Facture enregistree — ${formatFcfa(grandTotal)}`);
+      setCart([emptyLine()]);
+      setSoldDate(startOfDay(new Date()));
       loadAll();
+    } catch (error) {
+      toast.error(
+        error instanceof Error && !(error instanceof TypeError) && error.message
+          ? `Facture non enregistree : ${error.message}`
+          : "Echec de l'enregistrement — verifiez la connexion et reessayez"
+      );
     } finally {
       setSubmitting(false);
     }

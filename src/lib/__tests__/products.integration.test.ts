@@ -5,8 +5,8 @@ import { organizations, products, stockMovements } from "@/db/schema";
 import { createProduct, createStockMovement } from "@/lib/products";
 import { HttpError } from "@/lib/http-errors";
 
-const TEST_ORG_ID = `org_test_products_${Date.now()}`;
-const TEST_USER_ID = "user_test_vitest";
+const TEST_ORG_ID = crypto.randomUUID();
+const TEST_USER_ID = crypto.randomUUID();
 
 beforeEach(async () => {
   const db = getDb();
