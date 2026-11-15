@@ -4,7 +4,16 @@ import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import { PageHeader } from "@/components/page-header";
+import {
+  AdminEmpty,
+  AdminPageHeader,
+  AdminPanel,
+  AdminTable,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from "@/components/admin-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
@@ -53,97 +62,99 @@ export default function AdminErrorsPage() {
   }, [days]);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="space-y-8">
+      <AdminPageHeader
         title="Erreurs"
-        description="Erreurs inattendues remontees par l'API, le web et le mobile, regroupees par cause"
+        description="Incidents regroupés par cause — API, web et mobile."
+        action={
+          <div className="flex gap-1.5 rounded-sm border border-border bg-card p-1">
+            {PERIODS.map((p) => (
+              <Button
+                key={p}
+                size="sm"
+                variant={p === days ? "default" : "ghost"}
+                className="h-8 px-3"
+                onClick={() => {
+                  setGroups(null);
+                  setExpanded(null);
+                  setDays(p);
+                }}
+              >
+                {p === 1 ? "24 h" : `${p} j`}
+              </Button>
+            ))}
+          </div>
+        }
       />
 
-      <div className="flex gap-2">
-        {PERIODS.map((p) => (
-          <Button
-            key={p}
-            size="sm"
-            variant={p === days ? "default" : "secondary"}
-            onClick={() => {
-              setGroups(null);
-              setDays(p);
-            }}
-          >
-            {p === 1 ? "24 h" : `${p} jours`}
-          </Button>
-        ))}
-      </div>
-
-      {!groups ? (
-        <Skeleton className="h-40 w-full" />
-      ) : (
-        <div className="overflow-x-auto border border-border bg-card">
-          <table className="w-full min-w-[44rem] border-collapse text-sm">
-            <thead className="border-b border-border bg-muted/80">
-              <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                <th className="px-4 py-2.5">Erreur</th>
-                <th className="px-4 py-2.5">Source</th>
-                <th className="px-4 py-2.5 text-right">Occurrences</th>
-                <th className="px-4 py-2.5 text-right">Bars</th>
-                <th className="px-4 py-2.5 text-right">Derniere</th>
+      <AdminPanel>
+        {!groups ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <AdminTable minWidth="48rem">
+            <AdminTableHead>
+              <tr>
+                <AdminTh>Erreur</AdminTh>
+                <AdminTh>Source</AdminTh>
+                <AdminTh align="right">Occurrences</AdminTh>
+                <AdminTh align="right">Bars</AdminTh>
+                <AdminTh align="right">Dernière</AdminTh>
               </tr>
-            </thead>
+            </AdminTableHead>
             <tbody>
               {groups.map((g) => (
                 <Fragment key={g.fingerprint}>
-                  <tr
-                    className="cursor-pointer border-b border-border hover:bg-muted/40"
-                    onClick={() => setExpanded(expanded === g.fingerprint ? null : g.fingerprint)}
+                  <AdminTr
+                    onClick={() =>
+                      setExpanded(expanded === g.fingerprint ? null : g.fingerprint)
+                    }
                   >
-                    <td className="max-w-md px-4 py-2.5">
-                      <p className="truncate font-semibold">{g.message}</p>
+                    <AdminTd className="max-w-md">
+                      <p className="truncate font-semibold tracking-tight">{g.message}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {[g.method, g.path].filter(Boolean).join(" ") || "—"}
                         {g.barName ? ` · ${g.barName}` : ""}
                       </p>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs">{SOURCE_LABELS[g.source] ?? g.source}</td>
-                    <td
-                      className={cn(
-                        "font-figures px-4 py-2.5 text-right",
-                        g.occurrences >= 10 && "font-semibold text-destructive"
-                      )}
+                    </AdminTd>
+                    <AdminTd className="text-xs font-semibold tracking-wide uppercase" muted>
+                      {SOURCE_LABELS[g.source] ?? g.source}
+                    </AdminTd>
+                    <AdminTd
+                      align="right"
+                      figures
+                      className={cn(g.occurrences >= 10 && "font-semibold text-destructive")}
                     >
                       {g.occurrences}
-                    </td>
-                    <td className="font-figures px-4 py-2.5 text-right text-muted-foreground">
+                    </AdminTd>
+                    <AdminTd align="right" figures muted>
                       {g.barsAffected}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
+                    </AdminTd>
+                    <AdminTd align="right" className="text-xs" muted>
                       {formatWhen(g.lastSeen)}
-                    </td>
-                  </tr>
-                  {expanded === g.fingerprint && (
-                    <tr className="border-b border-border bg-muted/30">
-                      <td colSpan={5} className="px-4 py-3">
-                        <p className="mb-2 text-xs text-muted-foreground">
-                          Premiere occurrence : {formatWhen(g.firstSeen)} · {g.usersAffected} utilisateur(s)
+                    </AdminTd>
+                  </AdminTr>
+                  {expanded === g.fingerprint ? (
+                    <tr className="border-b border-border bg-muted/40">
+                      <td colSpan={5} className="px-4 py-4">
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Première occurrence : {formatWhen(g.firstSeen)} ·{" "}
+                          {g.usersAffected} utilisateur(s)
                         </p>
-                        <pre className="max-h-80 overflow-auto text-xs whitespace-pre-wrap">
+                        <pre className="max-h-80 overflow-auto border border-border/70 bg-background/80 p-3 font-mono text-xs whitespace-pre-wrap">
                           {g.stack ?? g.message}
                         </pre>
                       </td>
                     </tr>
-                  )}
+                  ) : null}
                 </Fragment>
               ))}
-              {groups.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    Aucune erreur sur la periode.
-                  </td>
-                </tr>
-              )}
+              {groups.length === 0 ? (
+                <AdminEmpty colSpan={5}>Aucune erreur sur la période.</AdminEmpty>
+              ) : null}
             </tbody>
-          </table>
-        </div>
-      )}
+          </AdminTable>
+        )}
+      </AdminPanel>
     </div>
   );
 }

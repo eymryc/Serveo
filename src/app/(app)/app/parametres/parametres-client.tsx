@@ -86,8 +86,9 @@ export default function ParametresPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Parametres"
-        description="Identite · categories · paiements"
+        eyebrow="Administration"
+        title="Paramètres"
+        description="Identité · catégories · paiements"
       />
 
       <Tabs defaultValue="general" className="gap-0">

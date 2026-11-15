@@ -15,8 +15,16 @@ const PHRASES = [
 
 const SEQUENCE = PHRASES.flatMap((phrase) => [phrase, 2800]);
 
-export function HeroSlogan({ className }: { className?: string }) {
+export function HeroSlogan({
+  className,
+  tone = "light",
+}: {
+  className?: string;
+  /** Sur hero photo plein écran : texte clair. */
+  tone?: "light" | "on-photo";
+}) {
   const [reduceMotion, setReduceMotion] = useState(false);
+  const onPhoto = tone === "on-photo";
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture d'API navigateur après hydratation pour éviter un mismatch SSR, pattern volontaire
@@ -25,10 +33,18 @@ export function HeroSlogan({ className }: { className?: string }) {
 
   return (
     <div className={cn(className)}>
-      <h1 className="text-[clamp(2.5rem,6.4vw,4rem)] font-bold leading-[1.02] tracking-[-0.035em]">
-        <span className="block text-foreground">Votre commerce,</span>
+      <h1
+        className={cn(
+          "text-[clamp(2.65rem,7vw,4.35rem)] font-bold leading-[1.02] tracking-[-0.038em]",
+          onPhoto ? "text-white drop-shadow-[0_1px_18px_rgba(0,0,0,0.35)]" : "text-foreground"
+        )}
+      >
+        <span className="block">Votre commerce,</span>
         <span
-          className="mt-2.5 block min-h-[1.15em] text-primary sm:mt-3.5"
+          className={cn(
+            "mt-2.5 block min-h-[1.15em] sm:mt-3.5",
+            onPhoto ? "text-[#9fd4b8]" : "text-primary"
+          )}
           aria-live="polite"
         >
           {reduceMotion ? (
@@ -42,14 +58,19 @@ export function HeroSlogan({ className }: { className?: string }) {
               repeat={Infinity}
               cursor={false}
               preRenderFirstString
-              className="hero-type-animation"
+              className={cn("hero-type-animation", onPhoto && "hero-type-animation--on-photo")}
               aria-label={PHRASES.join(" ")}
             />
           )}
         </span>
       </h1>
 
-      <p className="mt-6 max-w-[28rem] text-[15.5px] leading-[1.55] text-muted-foreground sm:mt-7 sm:text-[1.05rem]">
+      <p
+        className={cn(
+          "mt-6 max-w-[28rem] text-[16px] leading-[1.55] sm:mt-7 sm:text-[1.08rem]",
+          onPhoto ? "text-white/85" : "text-muted-foreground"
+        )}
+      >
         Encaissez en FCFA ou Mobile Money, suivez le stock et vos marges — sans cahier.
       </p>
     </div>

@@ -4,8 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { PageHeader } from "@/components/page-header";
+import {
+  AdminEmpty,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatus,
+  AdminTable,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from "@/components/admin-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,7 +73,7 @@ export default function AdminBarsPage() {
 
   useEffect(() => {
     if (!selectedId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données au montage, pattern volontaire
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset detail when sheet closes
       setDetail(null);
       return;
     }
@@ -91,7 +100,7 @@ export default function AdminBarsPage() {
         method: "PATCH",
         body: JSON.stringify({ isActive: org.isActive ? 0 : 1 }),
       });
-      toast.success(org.isActive ? "Bar desactive" : "Bar reactive");
+      toast.success(org.isActive ? "Bar désactivé" : "Bar réactivé");
       load();
       if (selectedId === org.id) {
         const d = await apiFetch<OrgDetail>(`/api/v1/admin/organizations/${org.id}`);
@@ -106,77 +115,76 @@ export default function AdminBarsPage() {
 
   if (rows === null) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-40 w-full" />
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full max-w-lg" />
+        <Skeleton className="h-56 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Bars" description="Tous les etablissements de la plateforme" />
-
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Rechercher un bar…"
-        className="max-w-sm"
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="Bars"
+        description="Tous les établissements de la plateforme — activation et détail."
       />
 
-      <div className="overflow-x-auto border border-border bg-card">
-        <table className="w-full min-w-[40rem] border-collapse text-sm">
-          <thead className="border-b border-border bg-muted/80">
-            <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              <th className="px-4 py-2.5">Bar</th>
-              <th className="px-4 py-2.5">Membres</th>
-              <th className="px-4 py-2.5">Articles</th>
-              <th className="px-4 py-2.5">Ventes</th>
-              <th className="px-4 py-2.5">Statut</th>
+      <AdminPanel>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un bar…"
+            className="max-w-sm bg-card"
+          />
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} bar{filtered.length > 1 ? "s" : ""}
+          </p>
+        </div>
+
+        <AdminTable minWidth="44rem">
+          <AdminTableHead>
+            <tr>
+              <AdminTh>Bar</AdminTh>
+              <AdminTh align="right">Membres</AdminTh>
+              <AdminTh align="right">Articles</AdminTh>
+              <AdminTh align="right">Ventes</AdminTh>
+              <AdminTh>Statut</AdminTh>
             </tr>
-          </thead>
+          </AdminTableHead>
           <tbody>
             {filtered.map((org) => (
-              <tr
-                key={org.id}
-                onClick={() => setSelectedId(org.id)}
-                className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40"
-              >
-                <td className="px-4 py-2.5">
-                  <p className="font-semibold">{org.name}</p>
+              <AdminTr key={org.id} onClick={() => setSelectedId(org.id)}>
+                <AdminTd>
+                  <p className="font-semibold tracking-tight">{org.name}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {[org.city, org.country].filter(Boolean).join(" · ") || "—"}
                   </p>
-                </td>
-                <td className="font-figures px-4 py-2.5">{org.membersCount}</td>
-                <td className="font-figures px-4 py-2.5">{org.productsCount}</td>
-                <td className="font-figures px-4 py-2.5">{org.salesCount}</td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold",
-                      org.isActive ? "text-success" : "text-destructive"
-                    )}
-                  >
-                    {org.isActive ? "Actif" : "Desactive"}
-                  </span>
-                </td>
-              </tr>
+                </AdminTd>
+                <AdminTd align="right" figures>
+                  {org.membersCount}
+                </AdminTd>
+                <AdminTd align="right" figures>
+                  {org.productsCount}
+                </AdminTd>
+                <AdminTd align="right" figures>
+                  {org.salesCount}
+                </AdminTd>
+                <AdminTd>
+                  <AdminStatus active={!!org.isActive} />
+                </AdminTd>
+              </AdminTr>
             ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  Aucun bar trouve.
-                </td>
-              </tr>
-            )}
+            {filtered.length === 0 ? (
+              <AdminEmpty colSpan={5}>Aucun bar trouvé.</AdminEmpty>
+            ) : null}
           </tbody>
-        </table>
-      </div>
+        </AdminTable>
+      </AdminPanel>
 
       <Sheet open={!!selectedId} onOpenChange={(open) => !open && setSelectedId(null)}>
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
-          {detail && (
+          {detail ? (
             <>
               <SheetHeader className="border-b border-border">
                 <SheetTitle>{detail.organization.name}</SheetTitle>
@@ -186,57 +194,70 @@ export default function AdminBarsPage() {
                     .join(" · ") || "Sans localisation"}
                 </SheetDescription>
               </SheetHeader>
-              <div className="space-y-4 overflow-y-auto px-4 py-4">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p className="text-muted-foreground">Articles</p>
-                  <p className="font-figures text-right font-semibold">
-                    {detail.organization.productsCount}
-                  </p>
-                  <p className="text-muted-foreground">Ventes</p>
-                  <p className="font-figures text-right font-semibold">
-                    {detail.organization.salesCount}
-                  </p>
-                  <p className="text-muted-foreground">CA total</p>
-                  <p className="font-figures text-right font-semibold">
-                    {formatFcfa(detail.organization.revenueTotal)}
-                  </p>
+              <div className="space-y-5 overflow-y-auto px-4 py-4">
+                <div className="grid grid-cols-3 gap-px overflow-hidden border border-border bg-border">
+                  {[
+                    { label: "Articles", value: String(detail.organization.productsCount) },
+                    { label: "Ventes", value: String(detail.organization.salesCount) },
+                    {
+                      label: "CA total",
+                      value: formatFcfa(detail.organization.revenueTotal),
+                    },
+                  ].map((cell) => (
+                    <div key={cell.label} className="space-y-1 bg-card px-3 py-3">
+                      <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                        {cell.label}
+                      </p>
+                      <p className="font-figures text-sm font-bold tracking-tight">
+                        {cell.value}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
-                <Button
-                  variant={detail.organization.isActive ? "destructive" : "default"}
-                  disabled={busy}
-                  onClick={() => toggleActive(detail.organization)}
-                  className="w-full"
-                >
-                  {detail.organization.isActive ? "Desactiver le bar" : "Reactiver le bar"}
-                </Button>
+                <div className="flex items-center justify-between gap-3">
+                  <AdminStatus active={!!detail.organization.isActive} />
+                  <Button
+                    variant={detail.organization.isActive ? "destructive" : "default"}
+                    disabled={busy}
+                    size="sm"
+                    onClick={() => toggleActive(detail.organization)}
+                  >
+                    {detail.organization.isActive ? "Désactiver" : "Réactiver"}
+                  </Button>
+                </div>
 
                 <div>
-                  <p className="mb-2 text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                    Equipe ({detail.members.length})
+                  <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                    Équipe ({detail.members.length})
                   </p>
                   <ul className="divide-y divide-border border border-border">
                     {detail.members.map((m) => (
                       <li key={m.id} className="px-3 py-2.5 text-sm">
-                        <p className="font-medium">
+                        <p className="font-semibold tracking-tight">
                           {m.firstName} {m.lastName}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {m.phone} · {m.role}
-                          {!m.isActive ? " · desactive" : ""}
+                          {m.phone} · {m.role === "admin" ? "Gérant" : m.role === "member" ? "Barman" : m.role}
+                          {!m.isActive ? " · désactivé" : ""}
                           {m.isPlatformAdmin ? " · plateforme" : ""}
                         </p>
                       </li>
                     ))}
-                    {detail.members.length === 0 && (
+                    {detail.members.length === 0 ? (
                       <li className="px-3 py-6 text-center text-sm text-muted-foreground">
                         Aucun membre.
                       </li>
-                    )}
+                    ) : null}
                   </ul>
                 </div>
               </div>
             </>
+          ) : (
+            <div className="space-y-3 p-4">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-24 w-full" />
+            </div>
           )}
         </SheetContent>
       </Sheet>

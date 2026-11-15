@@ -26,7 +26,15 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/searchable-select";
 import { PageHeader } from "@/components/page-header";
-import { KpiCell, StatusBadge } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+  KpiCell,
+  StatusBadge,
+} from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type DeliveryLineDraft = {
@@ -212,6 +220,7 @@ export default function FournisseursPageClient() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Gestion"
         title="Fournisseurs"
         description="Fiches fournisseurs et livraisons qui alimentent le stock."
         action={
@@ -267,43 +276,43 @@ export default function FournisseursPageClient() {
               </p>
             </section>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[520px] text-left text-sm">
-                <thead className="border-b border-border bg-muted/40 text-[10px] tracking-wider text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Date</th>
-                    <th className="px-3 py-2 font-semibold">Fournisseur</th>
-                    <th className="px-3 py-2 font-semibold text-right">Total</th>
-                    <th className="px-3 py-2 font-semibold text-right">Paye</th>
-                    <th className="px-3 py-2 font-semibold">Paiement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {deliveries.map((d) => (
-                    <tr key={d.id} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2.5">{formatWhen(d.deliveryDate)}</td>
-                      <td className="px-3 py-2.5 font-medium">
-                        {d.supplierName ?? "—"}
-                        {d.note ? (
-                          <span className="block text-xs text-muted-foreground">{d.note}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
-                        {formatFcfa(Number(d.totalAmount))}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">
-                        {formatFcfa(Number(d.paidAmount))}
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
-                        {d.paymentMethod
-                          ? (PAYMENT_METHOD_LABELS[d.paymentMethod] ?? d.paymentMethod)
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable minWidth="32rem">
+              <DataTableHead>
+                <tr>
+                  <DataTh>Date</DataTh>
+                  <DataTh>Fournisseur</DataTh>
+                  <DataTh align="right">Total</DataTh>
+                  <DataTh align="right">Payé</DataTh>
+                  <DataTh>Paiement</DataTh>
+                </tr>
+              </DataTableHead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <DataTr key={d.id}>
+                    <DataTd>{formatWhen(d.deliveryDate)}</DataTd>
+                    <DataTd className="font-semibold tracking-tight">
+                      {d.supplierName ?? "—"}
+                      {d.note ? (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {d.note}
+                        </span>
+                      ) : null}
+                    </DataTd>
+                    <DataTd align="right" figures>
+                      {formatFcfa(Number(d.totalAmount))}
+                    </DataTd>
+                    <DataTd align="right" figures>
+                      {formatFcfa(Number(d.paidAmount))}
+                    </DataTd>
+                    <DataTd muted>
+                      {d.paymentMethod
+                        ? (PAYMENT_METHOD_LABELS[d.paymentMethod] ?? d.paymentMethod)
+                        : "—"}
+                    </DataTd>
+                  </DataTr>
+                ))}
+              </tbody>
+            </DataTable>
           )}
         </TabsContent>
 
@@ -322,34 +331,32 @@ export default function FournisseursPageClient() {
           ) : filteredSuppliers.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun fournisseur.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[400px] text-left text-sm">
-                <thead className="border-b border-border bg-muted/40 text-[10px] tracking-wider text-muted-foreground uppercase">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Nom</th>
-                    <th className="px-3 py-2 font-semibold">Telephone</th>
-                    <th className="px-3 py-2 font-semibold">Note</th>
-                    <th className="px-3 py-2 font-semibold">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSuppliers.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2.5 font-medium">{s.name}</td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{s.phone || "—"}</td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{s.note || "—"}</td>
-                      <td className="px-3 py-2.5">
-                        {s.isActive ? (
-                          <StatusBadge tone="good">Actif</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="neutral">Inactif</StatusBadge>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable minWidth="28rem">
+              <DataTableHead>
+                <tr>
+                  <DataTh>Nom</DataTh>
+                  <DataTh>Téléphone</DataTh>
+                  <DataTh>Note</DataTh>
+                  <DataTh>Statut</DataTh>
+                </tr>
+              </DataTableHead>
+              <tbody>
+                {filteredSuppliers.map((s) => (
+                  <DataTr key={s.id}>
+                    <DataTd className="font-semibold tracking-tight">{s.name}</DataTd>
+                    <DataTd muted>{s.phone || "—"}</DataTd>
+                    <DataTd muted>{s.note || "—"}</DataTd>
+                    <DataTd>
+                      {s.isActive ? (
+                        <StatusBadge tone="good">Actif</StatusBadge>
+                      ) : (
+                        <StatusBadge tone="neutral">Inactif</StatusBadge>
+                      )}
+                    </DataTd>
+                  </DataTr>
+                ))}
+              </tbody>
+            </DataTable>
           )}
         </TabsContent>
       </Tabs>

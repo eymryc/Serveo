@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LogoMark } from "@/components/logo-mark";
 
 export function OnboardingClient() {
   const router = useRouter();
@@ -27,46 +26,44 @@ export function OnboardingClient() {
       router.push("/app");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur de creation du bar");
+      setError(err instanceof Error ? err.message : "Erreur de création du bar");
       setLoading(false);
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm"
-    >
-      <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
-
-      <div className="flex justify-center pb-2">
-        <LogoMark
-          size="xl"
-          priority
-          className="h-14 w-auto object-contain object-center sm:h-16"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="bar-name">Nom du bar</Label>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="bar-name" className="text-[13px] font-semibold tracking-wide">
+          Nom du bar
+        </Label>
         <Input
           id="bar-name"
           required
           placeholder="Le Comptoir"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="h-11"
         />
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          Visible par votre équipe. Vous pourrez le modifier plus tard.
+        </p>
       </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Creation..." : "Creer mon bar"}
-      </Button>
-
-      {error && (
+      {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
+      ) : null}
+
+      <Button
+        type="submit"
+        size="lg"
+        className="auth-submit h-12 w-full text-[15px] tracking-wide"
+        disabled={loading}
+      >
+        {loading ? "Création…" : "Créer mon bar"}
+      </Button>
     </form>
   );
 }

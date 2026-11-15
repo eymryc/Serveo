@@ -19,6 +19,13 @@ import { PAYMENT_METHOD_LABELS, type DashboardData, type PeriodSelection, type P
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/stat-card";
 import { PageHeader } from "@/components/page-header";
+import {
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+} from "@/components/data-table";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle } from "@/components/ui/alert";
@@ -74,16 +81,17 @@ export default function DashboardPage() {
   const shell = (
     <>
       <PageHeader
+        eyebrow="Activité"
         title="Tableau de bord"
         description="Compte de résultat simplifié — CA, marge brute, charges et bénéfice."
+        action={<PeriodSelector layout="bar" value={period} onChange={setPeriod} />}
       />
-      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
     </>
   );
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {shell}
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
@@ -95,7 +103,7 @@ export default function DashboardPage() {
 
   if (!data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {shell}
         <DashboardContentSkeleton />
       </div>
@@ -104,10 +112,11 @@ export default function DashboardPage() {
 
   if (data.restricted) {
     return (
-      <div className={cn("space-y-6", loading && "opacity-70")}>
+      <div className={cn("space-y-8", loading && "opacity-70")}>
         <PageHeader
+          eyebrow="Activité"
           title="Tableau de bord"
-          description="Vue operationnelle — les chiffres financiers sont reserves au gerant."
+          description="Vue opérationnelle — les chiffres financiers sont réservés au gérant."
           action={<PeriodSelector value={period} onChange={setPeriod} />}
         />
 
@@ -371,30 +380,28 @@ function StockAlertsPanel({
           </Link>
         </Button>
       </div>
-      <div className="overflow-x-auto border border-border bg-card">
-        <table className="w-full border-collapse text-sm">
-          <thead className="border-b border-border bg-muted/80">
-            <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              <th className="px-4 py-2.5">Article</th>
-              <th className="px-4 py-2.5 text-right">Stock</th>
-              <th className="px-4 py-2.5 text-right">Seuil</th>
-            </tr>
-          </thead>
-          <tbody>
-            {alerts.map((p) => (
-              <tr key={p.id} className="border-b border-border last:border-b-0">
-                <td className="px-4 py-2.5 font-medium">{p.name}</td>
-                <td className="font-figures px-4 py-2.5 text-right text-destructive">
-                  {p.currentStock}
-                </td>
-                <td className="font-figures px-4 py-2.5 text-right text-muted-foreground">
-                  {p.stockMinThreshold}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable minWidth="24rem">
+        <DataTableHead>
+          <tr>
+            <DataTh>Article</DataTh>
+            <DataTh align="right">Stock</DataTh>
+            <DataTh align="right">Seuil</DataTh>
+          </tr>
+        </DataTableHead>
+        <tbody>
+          {alerts.map((p) => (
+            <DataTr key={p.id}>
+              <DataTd className="font-semibold tracking-tight">{p.name}</DataTd>
+              <DataTd align="right" figures className="text-destructive">
+                {p.currentStock}
+              </DataTd>
+              <DataTd align="right" figures muted>
+                {p.stockMinThreshold}
+              </DataTd>
+            </DataTr>
+          ))}
+        </tbody>
+      </DataTable>
     </div>
   );
 }

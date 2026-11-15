@@ -6,6 +6,14 @@ import { apiFetch } from "@/lib/api-client";
 import { formatFcfa } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+} from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Entry = {
@@ -107,47 +115,45 @@ export function JournalClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
+        eyebrow="Administration"
         title="Journal"
-        description="Qui a annule une vente, cloture la caisse ou modifie l'equipe, et quand. Les entrees ne peuvent pas etre modifiees."
+        description="Qui a annulé une vente, clôturé la caisse ou modifié l'équipe, et quand. Les entrées ne peuvent pas être modifiées."
       />
 
-      <div className="overflow-x-auto border border-border bg-card">
-        <table className="w-full min-w-[40rem] border-collapse text-sm">
-          <thead className="border-b border-border bg-muted/60">
-            <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              <th className="px-4 py-2.5 font-semibold sm:px-5">Date</th>
-              <th className="px-4 py-2.5 font-semibold">Action</th>
-              <th className="px-4 py-2.5 font-semibold">Par</th>
-              <th className="px-4 py-2.5 font-semibold">Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr key={entry.id} className="border-b border-border last:border-b-0">
-                <td className="px-4 py-3 whitespace-nowrap text-muted-foreground sm:px-5">
-                  {new Date(entry.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
-                </td>
-                <td className="px-4 py-3 font-semibold tracking-tight">
-                  {ACTION_LABELS[entry.action] ?? entry.action}
-                </td>
-                <td className="px-4 py-3">
-                  {entry.viaSupport ? "Support Serveo" : (entry.actorName ?? "Compte supprime")}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{describe(entry)}</td>
-              </tr>
-            ))}
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  Aucune action enregistree pour l&apos;instant.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable minWidth="40rem">
+        <DataTableHead>
+          <tr>
+            <DataTh>Date</DataTh>
+            <DataTh>Action</DataTh>
+            <DataTh>Par</DataTh>
+            <DataTh>Détail</DataTh>
+          </tr>
+        </DataTableHead>
+        <tbody>
+          {entries.map((entry) => (
+            <DataTr key={entry.id}>
+              <DataTd muted className="whitespace-nowrap">
+                {new Date(entry.createdAt).toLocaleString("fr-FR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </DataTd>
+              <DataTd className="font-semibold tracking-tight">
+                {ACTION_LABELS[entry.action] ?? entry.action}
+              </DataTd>
+              <DataTd>
+                {entry.viaSupport ? "Support Serveo" : (entry.actorName ?? "Compte supprimé")}
+              </DataTd>
+              <DataTd muted>{describe(entry)}</DataTd>
+            </DataTr>
+          ))}
+          {entries.length === 0 ? (
+            <DataEmpty colSpan={4}>Aucune action enregistrée pour l&apos;instant.</DataEmpty>
+          ) : null}
+        </tbody>
+      </DataTable>
 
       {hasMore && (
         <Button variant="outline" onClick={loadMore} disabled={loadingMore}>

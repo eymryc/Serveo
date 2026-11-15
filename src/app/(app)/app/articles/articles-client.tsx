@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/page-header";
 import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
   KpiCell,
   PAGE_SIZES,
   paginate,
@@ -263,8 +269,9 @@ export default function ArticlesPageClient() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Gestion"
         title="Articles"
-        description="Le catalogue de vos produits — Stock et Ventes s'y referent directement."
+        description="Le catalogue de vos produits — Stock et Ventes s'y référent directement."
         action={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> Nouvel article
@@ -298,8 +305,8 @@ export default function ArticlesPageClient() {
           />
         </div>
 
-        <div className="border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+        <div className="border border-border/80 bg-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-3">
             <div className="relative min-w-0 flex-1 basis-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -330,130 +337,123 @@ export default function ArticlesPageClient() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[48rem] border-collapse text-sm">
-              <thead className="border-b border-border bg-muted/80">
-                <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                  <SortableTh
-                    label="Article"
-                    active={sort.key === "name"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("name")}
-                  />
-                  <th className="hidden px-4 py-2.5 font-semibold text-muted-foreground lg:table-cell">
-                    Conditionnement
-                  </th>
-                  <SortableTh
-                    label="Prix vente"
-                    align="right"
-                    active={sort.key === "unitPrice"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("unitPrice")}
-                  />
-                  <SortableTh
-                    label="Prix achat"
-                    align="right"
-                    active={sort.key === "purchasePrice"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("purchasePrice")}
-                    className="hidden sm:table-cell"
-                  />
-                  <SortableTh
-                    label="Seuil"
-                    align="right"
-                    active={sort.key === "threshold"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("threshold")}
-                    className="hidden md:table-cell"
-                  />
-                  <SortableTh
-                    label="Statut"
-                    active={sort.key === "status"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("status")}
-                  />
-                  <th className="w-14 px-3 py-2.5 text-right font-semibold text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pager.rows.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={cn(
-                      "border-b border-border last:border-b-0 transition-colors hover:bg-muted/40",
-                      p.isActive
-                        ? "border-l-2 border-l-success/50"
-                        : "border-l-2 border-l-muted-foreground/40 opacity-55"
-                    )}
-                  >
-                    <td className="px-4 py-2.5">
-                      <p className="font-semibold leading-snug tracking-tight">{p.name}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {categoryName(p.categoryId)}
-                        <span className="mx-1.5 text-border">·</span>
-                        {p.unitLabel}
-                      </p>
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-muted-foreground lg:table-cell">
-                      {p.packageLabel && p.unitsPerPackage
-                        ? `${p.packageLabel} (${p.unitsPerPackage} ${p.unitLabel}s)`
-                        : "À l'unité"}
-                    </td>
-                    <td className="font-figures px-4 py-2.5 text-right text-base font-bold tabular-nums">
-                      {formatFcfa(Number(p.unitPrice))}
-                    </td>
-                    <td className="font-figures hidden px-4 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell">
-                      {formatFcfa(Number(p.purchasePrice ?? 0))}
-                    </td>
-                    <td className="font-figures hidden px-4 py-2.5 text-right text-muted-foreground md:table-cell">
-                      {p.stockMinThreshold}{" "}
-                      <span className="text-[11px]">
-                        {p.unitLabel}
-                        {p.stockMinThreshold !== 1 ? "(s)" : ""}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge tone={p.isActive ? "good" : "neutral"}>
-                        {p.isActive ? "Actif" : "Desactive"}
-                      </StatusBadge>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8">
-                            <MoreHorizontal className="size-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(p)}>Modifier</DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant={p.isActive ? "destructive" : "default"}
-                            onClick={() =>
-                              p.isActive ? setDeactivateTarget(p) : handleToggleActive(p)
-                            }
-                          >
-                            {p.isActive ? "Desactiver" : "Reactiver"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-                {pager.total === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      {products.length === 0
-                        ? "Aucun article. Creez le premier avec « Nouvel article »."
-                        : "Aucun article ne correspond aux filtres."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable minWidth="48rem" className="border-0 border-t-0">
+            <DataTableHead>
+              <tr>
+                <SortableTh
+                  label="Article"
+                  active={sort.key === "name"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("name")}
+                />
+                <DataTh className="hidden lg:table-cell">Conditionnement</DataTh>
+                <SortableTh
+                  label="Prix vente"
+                  align="right"
+                  active={sort.key === "unitPrice"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("unitPrice")}
+                />
+                <SortableTh
+                  label="Prix achat"
+                  align="right"
+                  active={sort.key === "purchasePrice"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("purchasePrice")}
+                  className="hidden sm:table-cell"
+                />
+                <SortableTh
+                  label="Seuil"
+                  align="right"
+                  active={sort.key === "threshold"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("threshold")}
+                  className="hidden md:table-cell"
+                />
+                <SortableTh
+                  label="Statut"
+                  active={sort.key === "status"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("status")}
+                />
+                <DataTh align="right" className="w-14">
+                  Actions
+                </DataTh>
+              </tr>
+            </DataTableHead>
+            <tbody>
+              {pager.rows.map((p) => (
+                <DataTr
+                  key={p.id}
+                  className={cn(
+                    p.isActive
+                      ? "border-l-2 border-l-success/50"
+                      : "border-l-2 border-l-muted-foreground/40 opacity-55"
+                  )}
+                >
+                  <DataTd>
+                    <p className="font-semibold leading-snug tracking-tight">{p.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {categoryName(p.categoryId)}
+                      <span className="mx-1.5 text-border">·</span>
+                      {p.unitLabel}
+                    </p>
+                  </DataTd>
+                  <DataTd muted className="hidden lg:table-cell">
+                    {p.packageLabel && p.unitsPerPackage
+                      ? `${p.packageLabel} (${p.unitsPerPackage} ${p.unitLabel}s)`
+                      : "À l'unité"}
+                  </DataTd>
+                  <DataTd align="right" figures className="text-base font-bold">
+                    {formatFcfa(Number(p.unitPrice))}
+                  </DataTd>
+                  <DataTd align="right" figures muted className="hidden sm:table-cell">
+                    {formatFcfa(Number(p.purchasePrice ?? 0))}
+                  </DataTd>
+                  <DataTd align="right" figures muted className="hidden md:table-cell">
+                    {p.stockMinThreshold}{" "}
+                    <span className="text-[11px]">
+                      {p.unitLabel}
+                      {p.stockMinThreshold !== 1 ? "(s)" : ""}
+                    </span>
+                  </DataTd>
+                  <DataTd>
+                    <StatusBadge tone={p.isActive ? "good" : "neutral"}>
+                      {p.isActive ? "Actif" : "Desactive"}
+                    </StatusBadge>
+                  </DataTd>
+                  <DataTd align="right" className="px-3">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <MoreHorizontal className="size-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(p)}>Modifier</DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant={p.isActive ? "destructive" : "default"}
+                          onClick={() =>
+                            p.isActive ? setDeactivateTarget(p) : handleToggleActive(p)
+                          }
+                        >
+                          {p.isActive ? "Desactiver" : "Reactiver"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </DataTd>
+                </DataTr>
+              ))}
+              {pager.total === 0 ? (
+                <DataEmpty colSpan={7}>
+                  {products.length === 0
+                    ? "Aucun article. Creez le premier avec « Nouvel article »."
+                    : "Aucun article ne correspond aux filtres."}
+                </DataEmpty>
+              ) : null}
+            </tbody>
+          </DataTable>
 
           <TablePagination
             from={pager.from}

@@ -42,6 +42,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
   KpiCell,
   PAGE_SIZES,
   paginate,
@@ -806,8 +812,8 @@ export default function VentesPage() {
                 </div>
               )}
 
-              <div className="border border-border bg-card">
-                <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+              <div className="border border-border/80 bg-card">
+                <div className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-3">
                   <div className="relative min-w-0 flex-1 basis-48">
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -829,71 +835,66 @@ export default function VentesPage() {
                   )}
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[36rem] border-collapse text-sm">
-                    <thead className="border-b border-border bg-muted/80">
-                      <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                        <th className="px-4 py-2.5 font-semibold">Date</th>
-                        <th className="px-4 py-2.5 font-semibold">Facture</th>
-                        <th className="hidden px-4 py-2.5 font-semibold sm:table-cell">Paiement</th>
-                        <th className="px-4 py-2.5 text-right font-semibold">Quantite</th>
-                        <th className="px-4 py-2.5 text-right font-semibold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyPager.rows.map((group) => (
-                        <tr
-                          key={group.key}
-                          onClick={() => setSelectedTicket(group)}
+                <DataTable minWidth="36rem" className="border-0">
+                  <DataTableHead>
+                    <tr>
+                      <DataTh>Date</DataTh>
+                      <DataTh>Facture</DataTh>
+                      <DataTh className="hidden sm:table-cell">Paiement</DataTh>
+                      <DataTh align="right">Quantite</DataTh>
+                      <DataTh align="right">Total</DataTh>
+                    </tr>
+                  </DataTableHead>
+                  <tbody>
+                    {historyPager.rows.map((group) => (
+                      <DataTr
+                        key={group.key}
+                        onClick={() => setSelectedTicket(group)}
+                        className={cn(group.cancelled && "opacity-60")}
+                      >
+                        <DataTd figures muted className="text-xs font-semibold">
+                          {formatSaleTime(group.soldAt)}
+                        </DataTd>
+                        <DataTd>
+                          <p className="truncate text-sm font-semibold">
+                            {groupContentLabel(group, products)}
+                            {group.cancelled && (
+                              <span className="ml-1.5 text-[10px] font-bold tracking-wide text-destructive uppercase">
+                                Annulee
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
+                            {PAYMENT_METHOD_LABELS[group.paymentMethod] ?? group.paymentMethod}
+                          </p>
+                        </DataTd>
+                        <DataTd muted className="hidden sm:table-cell">
+                          {PAYMENT_METHOD_LABELS[group.paymentMethod] ?? group.paymentMethod}
+                        </DataTd>
+                        <DataTd align="right" muted className="text-xs">
+                          {groupQtyLabel(group, products)}
+                        </DataTd>
+                        <DataTd
+                          align="right"
+                          figures
                           className={cn(
-                            "cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40",
-                            group.cancelled && "opacity-60"
+                            "text-sm font-bold",
+                            group.cancelled && "line-through text-muted-foreground"
                           )}
                         >
-                          <td className="font-figures px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                            {formatSaleTime(group.soldAt)}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <p className="truncate text-sm font-semibold">
-                              {groupContentLabel(group, products)}
-                              {group.cancelled && (
-                                <span className="ml-1.5 text-[10px] font-bold tracking-wide text-destructive uppercase">
-                                  Annulee
-                                </span>
-                              )}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
-                              {PAYMENT_METHOD_LABELS[group.paymentMethod] ?? group.paymentMethod}
-                            </p>
-                          </td>
-                          <td className="hidden px-4 py-2.5 text-muted-foreground sm:table-cell">
-                            {PAYMENT_METHOD_LABELS[group.paymentMethod] ?? group.paymentMethod}
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
-                            {groupQtyLabel(group, products)}
-                          </td>
-                          <td
-                            className={cn(
-                              "font-figures px-4 py-2.5 text-right text-sm font-bold",
-                              group.cancelled && "line-through text-muted-foreground"
-                            )}
-                          >
-                            {formatFcfa(group.total)}
-                          </td>
-                        </tr>
-                      ))}
-                      {historyPager.total === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                            {saleGroups.length === 0
-                              ? "Pas encore de vente sur cette periode."
-                              : "Aucune facture ne correspond aux filtres."}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                          {formatFcfa(group.total)}
+                        </DataTd>
+                      </DataTr>
+                    ))}
+                    {historyPager.total === 0 ? (
+                      <DataEmpty colSpan={5}>
+                        {saleGroups.length === 0
+                          ? "Pas encore de vente sur cette periode."
+                          : "Aucune facture ne correspond aux filtres."}
+                      </DataEmpty>
+                    ) : null}
+                  </tbody>
+                </DataTable>
 
                 <TablePagination
                   from={historyPager.from}
@@ -943,48 +944,54 @@ export default function VentesPage() {
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto px-4 py-2">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                      <th className="py-2 font-semibold">Article</th>
-                      <th className="py-2 text-right font-semibold">Qte</th>
-                      <th className="py-2 text-right font-semibold">P.U.</th>
-                      <th className="py-2 text-right font-semibold">Total</th>
+                <DataTable minWidth="0" stickyHeader={false} className="border-0">
+                  <DataTableHead>
+                    <tr>
+                      <DataTh className="px-0">Article</DataTh>
+                      <DataTh align="right" className="px-0">
+                        Qte
+                      </DataTh>
+                      <DataTh align="right" className="px-0">
+                        P.U.
+                      </DataTh>
+                      <DataTh align="right" className="px-0">
+                        Total
+                      </DataTh>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-dashed divide-border">
+                  </DataTableHead>
+                  <tbody>
                     {selectedTicket.items.map((s) => {
                       const product = products.find((p) => p.id === s.productId);
                       const discount = Number(s.discount);
                       const unit = product?.unitLabel ?? "piece";
                       return (
-                        <tr key={s.id}>
-                          <td className="py-2.5 pr-2">
+                        <DataTr key={s.id}>
+                          <DataTd className="px-0">
                             <p className="font-medium">{product?.name ?? "—"}</p>
                             {discount > 0 && (
                               <p className="font-figures mt-0.5 text-[11px] text-destructive">
                                 Remise −{formatFcfa(discount)}
                               </p>
                             )}
-                          </td>
-                          <td className="py-2.5 text-right text-muted-foreground">
+                          </DataTd>
+                          <DataTd align="right" muted className="px-0">
                             <span className="font-figures">{s.quantity}</span>
                             <span className="ml-1 text-[11px]">
                               {unit}
                               {s.quantity > 1 ? "(s)" : ""}
                             </span>
-                          </td>
-                          <td className="font-figures py-2.5 text-right text-muted-foreground">
+                          </DataTd>
+                          <DataTd align="right" figures muted className="px-0">
                             {formatFcfa(Number(s.unitPrice))}
-                          </td>
-                          <td className="font-figures py-2.5 text-right font-semibold">
+                          </DataTd>
+                          <DataTd align="right" figures className="px-0 font-semibold">
                             {formatFcfa(Number(s.netAmount))}
-                          </td>
-                        </tr>
+                          </DataTd>
+                        </DataTr>
                       );
                     })}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
 
               <div className="mt-auto space-y-3 border-t border-border px-4 py-4">

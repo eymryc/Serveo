@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { AppDownloadBanner } from "@/components/app-download-banner";
 import { HeroSlogan } from "@/components/hero-slogan";
 import { LandingFeatureCards } from "@/components/landing-feature-cards";
-import { LogoMark } from "@/components/logo-mark";
+import { LandingHow } from "@/components/landing-how";
+import { LandingPayments } from "@/components/landing-payments";
+import { LandingRoles } from "@/components/landing-roles";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
@@ -22,93 +24,170 @@ export default async function LandingPage() {
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-x-clip bg-background">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_0%_0%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_55%),radial-gradient(ellipse_at_90%_80%,color-mix(in_oklch,var(--primary)_8%,transparent),transparent_45%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.035]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-      />
-
-      <SiteHeader variant="overlay" />
+      <SiteHeader variant="overlay-dark" />
 
       <main className="relative z-10 flex flex-1 flex-col">
-        {/* Hero — une composition plein viewport */}
-        <section className="relative grid min-h-dvh flex-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <div className="relative z-10 flex flex-col justify-center px-5 pb-14 pt-24 sm:px-10 sm:pb-16 sm:pt-28 lg:py-10 lg:pr-8 lg:pl-10 xl:pr-12 xl:pl-14">
-            <div className="landing-reveal mx-auto w-full max-w-lg lg:mx-0">
-              <LogoMark size="2xl" priority className="h-12 sm:h-14 lg:h-[3.75rem]" />
-              <div
-                aria-hidden
-                className="mt-5 h-px w-14 bg-primary/55 sm:mt-6 sm:w-16"
-              />
+        {/* Hero plein viewport — une composition, marque dominante */}
+        <section className="relative isolate min-h-dvh overflow-hidden">
+          <Image
+            src="/login-register.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="landing-hero-image object-cover object-[62%_48%]"
+            aria-hidden
+          />
+          {/* Assombrissement : panneau gauche opaque + fondu vers la photo */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[linear-gradient(95deg,rgba(6,10,8,0.94)_0%,rgba(6,10,8,0.9)_28%,rgba(6,10,8,0.55)_46%,rgba(6,10,8,0.18)_64%,transparent_82%)]"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/50 to-transparent"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/45 to-transparent"
+          />
 
-              <HeroSlogan className="mt-8 sm:mt-10" />
+          <div className="relative z-10 flex min-h-dvh flex-col justify-end px-5 pb-14 pt-28 sm:px-10 sm:pb-16 lg:justify-center lg:pb-20 lg:pt-24 xl:px-14">
+            <div className="landing-reveal mx-auto w-full max-w-6xl">
+              <div className="max-w-[34rem]">
+                <div aria-hidden className="h-px w-14 bg-[#9fd4b8]" />
 
-              <div className="mt-9 flex flex-wrap items-center gap-3 sm:mt-10">
-                <Button
-                  size="lg"
-                  className="h-12 min-w-[12rem] px-7 text-base tracking-wide shadow-[0_10px_28px_-12px_color-mix(in_oklch,var(--primary)_55%,transparent)]"
-                  asChild
-                >
-                  <Link href="/sign-up">
-                    Ouvrir mon commerce
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 border-border/80 bg-background/60 px-6 text-base backdrop-blur-sm"
-                  asChild
-                >
-                  <Link href="/sign-in">J&apos;ai déjà un compte</Link>
-                </Button>
+                <HeroSlogan tone="on-photo" className="mt-7 sm:mt-8" />
+
+                <div className="mt-9 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center">
+                  <Button
+                    size="lg"
+                    className="landing-cta-primary h-12 w-full min-w-[12.5rem] !bg-white px-7 text-base tracking-wide !text-[oklch(0.28_0.06_160)] hover:!bg-white/92 sm:w-auto"
+                    asChild
+                  >
+                    <Link href="/sign-up">
+                      Ouvrir mon commerce
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 w-full !border-white/65 !bg-transparent px-6 text-base !text-white hover:!bg-white/12 hover:!text-white sm:w-auto"
+                    asChild
+                  >
+                    <Link href="/sign-in">J&apos;ai déjà un compte</Link>
+                  </Button>
+                </div>
+
+                {androidApkUrl ? (
+                  <AppDownloadBanner
+                    href={androidApkUrl}
+                    tone="on-photo"
+                    className="mt-9 sm:mt-10"
+                  />
+                ) : null}
               </div>
-
-              {androidApkUrl ? (
-                <AppDownloadBanner href={androidApkUrl} className="mt-9 sm:mt-10" />
-              ) : null}
             </div>
-          </div>
-
-          <div className="relative min-h-[22rem] overflow-hidden sm:min-h-[26rem] lg:min-h-0">
-            <Image
-              src="/home.png"
-              alt="Serveo — ambiance bar et identité visuelle"
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 55vw"
-              className="landing-hero-image object-cover object-[62%_42%]"
-            />
-            {/* Fusion douce — image reste dominante */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent lg:bg-[linear-gradient(90deg,var(--background)_0%,color-mix(in_oklch,var(--background)_55%,transparent)_14%,transparent_32%)]"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/20"
-            />
           </div>
         </section>
 
-        {/* Sous le fold — un message, trois preuves */}
-        <section className="relative border-t border-border/50 bg-background/80 px-5 py-16 backdrop-blur-sm sm:px-10 sm:py-20">
-          <div className="mx-auto max-w-5xl">
+        {/* Preuves quotidiennes */}
+        <section
+          id="quotidien"
+          className="relative scroll-mt-20 border-t border-border/50 bg-background px-5 py-16 sm:px-10 sm:py-20 xl:px-14"
+        >
+          <div className="mx-auto max-w-6xl">
             <p className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
               Au quotidien
             </p>
-            <h2 className="mt-3 max-w-xl text-[1.85rem] font-bold leading-[1.15] tracking-[-0.02em] text-foreground sm:text-[2.15rem]">
+            <h2 className="mt-3 max-w-xl text-[1.85rem] font-bold leading-[1.15] tracking-[-0.02em] text-foreground sm:text-[2.2rem]">
               Moins de paperasse.
               <span className="mt-1 block text-primary">Plus de contrôle.</span>
             </h2>
             <LandingFeatureCards className="mt-12 sm:mt-14" />
+          </div>
+        </section>
+
+        {/* Parcours */}
+        <section
+          id="parcours"
+          className="relative scroll-mt-20 bg-[color-mix(in_oklch,var(--primary)_4.5%,var(--background))] px-5 py-16 sm:px-10 sm:py-20 xl:px-14"
+        >
+          <div className="mx-auto max-w-6xl">
+            <p className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
+              En trois gestes
+            </p>
+            <h2 className="mt-3 max-w-xl text-[1.85rem] font-bold leading-[1.15] tracking-[-0.02em] text-foreground sm:text-[2.2rem]">
+              Du premier verre à la clôture.
+            </h2>
+            <LandingHow className="mt-10 sm:mt-12" />
+          </div>
+        </section>
+
+        {/* Gérant / barman */}
+        <section
+          id="equipe"
+          className="relative scroll-mt-20 border-y border-border/50 bg-background px-5 py-16 sm:px-10 sm:py-24 xl:px-14"
+        >
+          <div className="mx-auto max-w-6xl">
+            <LandingRoles />
+          </div>
+        </section>
+
+        {/* Paiements locaux */}
+        <section
+          id="paiements"
+          className="relative scroll-mt-20 bg-background px-5 py-16 sm:px-10 sm:py-20 xl:px-14"
+        >
+          <div className="mx-auto max-w-6xl">
+            <LandingPayments />
+          </div>
+        </section>
+
+        {/* CTA final */}
+        <section className="relative overflow-hidden border-t border-border/50 bg-[linear-gradient(160deg,oklch(0.28_0.06_160)_0%,oklch(0.36_0.09_158)_55%,oklch(0.42_0.1_160)_100%)] px-5 py-16 sm:px-10 sm:py-20 xl:px-14">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-overlay"
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+            }}
+          />
+          <div className="landing-reveal relative mx-auto flex max-w-6xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-xl">
+              <p className="text-[11px] font-semibold tracking-[0.22em] text-white/55 uppercase">
+                Prêt à démarrer
+              </p>
+              <h2 className="mt-3 text-[1.9rem] font-bold leading-[1.12] tracking-[-0.02em] text-white sm:text-[2.35rem]">
+                Ouvrez votre commerce sur Serveo.
+              </h2>
+              <p className="mt-4 max-w-md text-[1.02rem] leading-relaxed text-white/72">
+                Compte en quelques minutes. Dashboard pour le gérant, app Android
+                pour le barman — la même caisse, le même stock.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                size="lg"
+                className="h-12 min-w-[12rem] bg-white px-7 text-base tracking-wide text-[oklch(0.28_0.06_160)] hover:bg-white/92"
+                asChild
+              >
+                <Link href="/sign-up">
+                  Créer mon compte
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 border-white/35 bg-transparent px-6 text-base text-white hover:bg-white/10 hover:text-white"
+                asChild
+              >
+                <Link href="/sign-in">Se connecter</Link>
+              </Button>
+            </div>
           </div>
         </section>
       </main>

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,141 @@ export function paginate<T>(items: T[], page: number, pageSize: number) {
   };
 }
 
+/** Conteneur borduré + scroll horizontal — look « ticket de caisse ». */
+export function DataTable({
+  children,
+  className,
+  minWidth = "40rem",
+  stickyHeader = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  minWidth?: string;
+  stickyHeader?: boolean;
+}) {
+  return (
+    <div className={cn("data-table overflow-x-auto border border-border/80 bg-card", className)}>
+      <table
+        className={cn(
+          "w-full border-collapse text-sm",
+          stickyHeader && "data-table--sticky"
+        )}
+        style={{ minWidth }}
+      >
+        {children}
+      </table>
+    </div>
+  );
+}
+
+export function DataTableHead({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <thead className={cn("data-table__head border-b border-border", className)}>
+      {children}
+    </thead>
+  );
+}
+
+export function DataTh({
+  children,
+  align = "left",
+  className,
+  ...props
+}: {
+  children?: ReactNode;
+  align?: "left" | "right";
+} & Omit<ThHTMLAttributes<HTMLTableCellElement>, "align">) {
+  return (
+    <th
+      className={cn(
+        "px-4 py-3 text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase",
+        align === "right" && "text-right",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </th>
+  );
+}
+
+export function DataTr({
+  children,
+  className,
+  onClick,
+  clickable,
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+  clickable?: boolean;
+}) {
+  const interactive = clickable ?? Boolean(onClick);
+  return (
+    <tr
+      onClick={onClick}
+      className={cn(
+        "data-table__row border-b border-border/80 last:border-b-0",
+        interactive && "cursor-pointer",
+        className
+      )}
+    >
+      {children}
+    </tr>
+  );
+}
+
+export function DataTd({
+  children,
+  align = "left",
+  figures,
+  muted,
+  className,
+  ...props
+}: {
+  children?: ReactNode;
+  align?: "left" | "right";
+  figures?: boolean;
+  muted?: boolean;
+} & Omit<TdHTMLAttributes<HTMLTableCellElement>, "align">) {
+  return (
+    <td
+      className={cn(
+        "px-4 py-3 align-middle",
+        align === "right" && "text-right",
+        figures && "font-figures",
+        muted && "text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </td>
+  );
+}
+
+export function DataEmpty({
+  children,
+  colSpan = 12,
+}: {
+  children: ReactNode;
+  colSpan?: number;
+}) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-4 py-12 text-center text-sm text-muted-foreground">
+        {children}
+      </td>
+    </tr>
+  );
+}
+
 export function SortableTh({
   label,
   active,
@@ -40,12 +175,12 @@ export function SortableTh({
   className?: string;
 }) {
   return (
-    <th className={cn("px-4 py-2.5 font-semibold", className)}>
+    <DataTh align={align} className={className}>
       <button
         type="button"
         onClick={onClick}
         className={cn(
-          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
+          "inline-flex items-center gap-1 tracking-[0.14em] uppercase transition-colors hover:text-foreground",
           align === "right" && "ml-auto w-full justify-end",
           active ? "text-foreground" : "text-muted-foreground"
         )}
@@ -61,7 +196,7 @@ export function SortableTh({
           <ArrowUpDown className="size-3.5 opacity-50" />
         )}
       </button>
-    </th>
+    </DataTh>
   );
 }
 
@@ -85,18 +220,20 @@ export function TablePagination({
   onPageSizeChange: (size: (typeof PAGE_SIZES)[number]) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <p className="font-figures text-xs text-muted-foreground">
-        {total === 0 ? "0 resultat" : `${from}–${to} sur ${total}`}
+        {total === 0 ? "0 résultat" : `${from}–${to} sur ${total}`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Par page</span>
+          <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            Par page
+          </span>
           <Select
             value={String(pageSize)}
             onValueChange={(v) => onPageSizeChange(Number(v) as (typeof PAGE_SIZES)[number])}
           >
-            <SelectTrigger className="h-11 w-[4.5rem]">
+            <SelectTrigger className="h-9 w-[4.5rem]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -113,21 +250,21 @@ export function TablePagination({
             type="button"
             variant="outline"
             size="icon"
-            className="size-11"
+            className="size-9"
             disabled={page <= 1 || undefined}
             onClick={() => onPageChange(page - 1)}
           >
             <ChevronLeft className="size-4" />
-            <span className="sr-only">Page precedente</span>
+            <span className="sr-only">Page précédente</span>
           </Button>
-          <span className="font-figures min-w-16 text-center text-xs text-muted-foreground">
+          <span className="font-figures min-w-14 text-center text-xs text-muted-foreground">
             {page}/{pageCount}
           </span>
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="size-11"
+            className="size-9"
             disabled={page >= pageCount || undefined}
             onClick={() => onPageChange(page + 1)}
           >

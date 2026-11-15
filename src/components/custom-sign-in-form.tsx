@@ -9,7 +9,6 @@ import { PasswordInput } from "@/components/password-input";
 import { PhoneInput } from "@/components/phone-input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LogoMark } from "@/components/logo-mark";
 
 export function CustomSignInForm() {
   const router = useRouter();
@@ -29,8 +28,8 @@ export function CustomSignInForm() {
     if (result?.error) {
       setError(
         result.code === "rate_limited"
-          ? "Trop de tentatives. Reessayez dans quelques minutes."
-          : "Numero de telephone ou mot de passe incorrect"
+          ? "Trop de tentatives. Réessayez dans quelques minutes."
+          : "Numéro de téléphone ou mot de passe incorrect"
       );
       setLoading(false);
       return;
@@ -49,57 +48,54 @@ export function CustomSignInForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="relative w-full space-y-4 overflow-hidden rounded-md border border-border bg-card p-6 shadow-sm">
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
-
-        <div className="flex justify-center pb-2">
-          <LogoMark
-            size="xl"
-            priority
-            className="h-14 w-auto object-contain object-center sm:h-16"
-          />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="phone" className="text-[13px] font-semibold tracking-wide">
+          Numéro de téléphone
+        </Label>
+        <PhoneInput
+          id="phone"
+          autoComplete="tel"
+          required
+          value={phone}
+          onChange={setPhone}
+        />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="password" className="text-[13px] font-semibold tracking-wide">
+            Mot de passe
+          </Label>
+          <Link
+            href="/mot-de-passe-oublie"
+            className="text-[12px] font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Mot de passe oublié ?
+          </Link>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="phone">Numero de telephone</Label>
-            <PhoneInput
-              id="phone"
-              autoComplete="tel"
-              required
-              value={phone}
-              onChange={setPhone}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Mot de passe</Label>
-            <PasswordInput
-              id="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
-          </Button>
-        </form>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        <PasswordInput
+          id="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ?{" "}
-        <Link href="/sign-up" className="font-semibold text-foreground underline underline-offset-4 hover:text-primary">
-          Creer un compte
-        </Link>
-      </p>
-    </div>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Button
+        type="submit"
+        size="lg"
+        className="auth-submit h-12 w-full text-[15px] tracking-wide"
+        disabled={loading}
+      >
+        {loading ? "Connexion…" : "Se connecter"}
+      </Button>
+    </form>
   );
 }

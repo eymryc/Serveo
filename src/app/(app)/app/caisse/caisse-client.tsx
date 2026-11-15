@@ -24,7 +24,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/page-header";
-import { KpiCell, StatusBadge } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+  KpiCell,
+  StatusBadge,
+} from "@/components/data-table";
 
 const FALLBACK_METHOD_KEYS = [
   "especes",
@@ -178,13 +186,14 @@ export default function CaissePageClient() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Activité"
         title="Caisse"
-        description="Ouvrez la caisse avec un fond, vendez, puis cloturez en comptant chaque mode de paiement."
+        description="Ouvrez la caisse avec un fond, vendez, puis clôturez en comptant chaque mode de paiement."
         action={
           openSummary ? (
             <Button onClick={() => { prefillCountedFromExpected(); setCloseDialog(true); }}>
               <Lock className="size-4" />
-              Cloturer
+              Clôturer
             </Button>
           ) : (
             <Button onClick={() => setOpenDialog(true)}>
@@ -241,36 +250,30 @@ export default function CaissePageClient() {
         {closedHistory.length === 0 ? (
           <p className="text-sm text-muted-foreground">Pas encore de cloture.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-[10px] tracking-wider text-muted-foreground uppercase">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">Ouverture</th>
-                  <th className="px-3 py-2 font-semibold">Cloture</th>
-                  <th className="px-3 py-2 font-semibold">Fond</th>
-                  <th className="px-3 py-2 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {closedHistory.map((s) => (
-                  <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2.5">{formatOpenedAt(s.openedAt)}</td>
-                    <td className="px-3 py-2.5">
-                      {s.closedAt ? formatOpenedAt(s.closedAt) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums">
-                      {formatFcfa(Number(s.openingFloat))}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Button variant="ghost" size="sm" onClick={() => setDetailId(s.id)}>
-                        Detail
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable minWidth="32rem">
+            <DataTableHead>
+              <tr>
+                <DataTh>Ouverture</DataTh>
+                <DataTh>Clôture</DataTh>
+                <DataTh>Fond</DataTh>
+                <DataTh>Actions</DataTh>
+              </tr>
+            </DataTableHead>
+            <tbody>
+              {closedHistory.map((s) => (
+                <DataTr key={s.id}>
+                  <DataTd>{formatOpenedAt(s.openedAt)}</DataTd>
+                  <DataTd>{s.closedAt ? formatOpenedAt(s.closedAt) : "—"}</DataTd>
+                  <DataTd figures>{formatFcfa(Number(s.openingFloat))}</DataTd>
+                  <DataTd>
+                    <Button variant="ghost" size="sm" onClick={() => setDetailId(s.id)}>
+                      Détail
+                    </Button>
+                  </DataTd>
+                </DataTr>
+              ))}
+            </tbody>
+          </DataTable>
         )}
       </section>
 
@@ -391,40 +394,48 @@ export default function CaissePageClient() {
           </DialogHeader>
           {detail?.expectedByMethod && detail.countedByMethod && detail.variances && (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-[10px] tracking-wider text-muted-foreground uppercase">
+              <DataTable minWidth="0" stickyHeader={false} className="border-0">
+                <DataTableHead>
                   <tr>
-                    <th className="py-1 text-left">Mode</th>
-                    <th className="py-1 text-right">Attendu</th>
-                    <th className="py-1 text-right">Compte</th>
-                    <th className="py-1 text-right">Ecart</th>
+                    <DataTh className="px-0">Mode</DataTh>
+                    <DataTh align="right" className="px-0">
+                      Attendu
+                    </DataTh>
+                    <DataTh align="right" className="px-0">
+                      Compté
+                    </DataTh>
+                    <DataTh align="right" className="px-0">
+                      Écart
+                    </DataTh>
                   </tr>
-                </thead>
+                </DataTableHead>
                 <tbody>
                   {methodKeys(detail).map((key) => {
                     const v = detail.variances![key] ?? 0;
                     return (
-                      <tr key={key} className="border-t border-border">
-                        <td className="py-2">{PAYMENT_METHOD_LABELS[key] ?? key}</td>
-                        <td className="py-2 text-right tabular-nums">
+                      <DataTr key={key}>
+                        <DataTd className="px-0">{PAYMENT_METHOD_LABELS[key] ?? key}</DataTd>
+                        <DataTd align="right" figures className="px-0">
                           {formatFcfa(detail.expectedByMethod[key] ?? 0)}
-                        </td>
-                        <td className="py-2 text-right tabular-nums">
+                        </DataTd>
+                        <DataTd align="right" figures className="px-0">
                           {formatFcfa(detail.countedByMethod![key] ?? 0)}
-                        </td>
-                        <td
+                        </DataTd>
+                        <DataTd
+                          align="right"
+                          figures
                           className={cn(
-                            "py-2 text-right tabular-nums font-medium",
+                            "px-0 font-medium",
                             v !== 0 && "text-amber-700 dark:text-amber-400"
                           )}
                         >
                           {formatFcfa(v)}
-                        </td>
-                      </tr>
+                        </DataTd>
+                      </DataTr>
                     );
                   })}
                 </tbody>
-              </table>
+              </DataTable>
               {detail.session.note && (
                 <p className="mt-3 text-sm text-muted-foreground">Note : {detail.session.note}</p>
               )}

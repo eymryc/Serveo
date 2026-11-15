@@ -11,7 +11,11 @@ export default async function Page() {
   if (userId && !orgId) redirect("/onboarding");
 
   return (
-    <AuthShell title="Content de vous revoir" description="Connectez-vous a votre bar" active="sign-in">
+    <AuthShell
+      title="Content de vous revoir"
+      description="Entrez votre numéro et votre mot de passe pour ouvrir la caisse."
+      active="sign-in"
+    >
       <CustomSignInForm />
     </AuthShell>
   );

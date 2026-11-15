@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { desc, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { memberships, organizations, products, sales } from "@/db/schema";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
@@ -9,6 +9,8 @@ export async function GET() {
     await requirePlatformAdmin();
     const db = getDb();
 
+    // db.$count génère une sous-requête corrélée correctement qualifiée
+    // (évite "organization_id" = "id" ambigu dans un sql`` brut).
     const rows = await db
       .select({
         id: organizations.id,
@@ -17,9 +19,15 @@ export async function GET() {
         country: organizations.country,
         isActive: organizations.isActive,
         createdAt: organizations.createdAt,
-        membersCount: sql<number>`(select count(*)::int from ${memberships} where ${memberships.organizationId} = ${organizations.id})`,
-        productsCount: sql<number>`(select count(*)::int from ${products} where ${products.organizationId} = ${organizations.id})`,
-        salesCount: sql<number>`(select count(*)::int from ${sales} where ${sales.organizationId} = ${organizations.id})`,
+        membersCount: db.$count(
+          memberships,
+          eq(memberships.organizationId, organizations.id)
+        ),
+        productsCount: db.$count(
+          products,
+          eq(products.organizationId, organizations.id)
+        ),
+        salesCount: db.$count(sales, eq(sales.organizationId, organizations.id)),
       })
       .from(organizations)
       .orderBy(desc(organizations.createdAt));

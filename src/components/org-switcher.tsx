@@ -55,8 +55,10 @@ export function OrgSwitcher({
         disabled={switching}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
+          <p className="truncate text-sm font-semibold">{orgName}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground opacity-80">
+            {isAdmin ? "Gérant" : "Barman"}
+          </p>
         </div>
         <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>

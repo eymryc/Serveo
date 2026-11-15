@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AuthShell } from "@/components/auth-shell";
@@ -29,8 +30,25 @@ export default async function OnboardingPage({
     <>
       <ImpersonationBanner />
       <AuthShell
-        title={addingAnother ? "Ajoutez un bar" : "Creez votre bar"}
-        description="Chaque bar est un espace independant : ventes, stock et charges y sont isoles"
+        active="onboarding"
+        title={addingAnother ? "Ajoutez un bar" : "Créez votre bar"}
+        description={
+          addingAnother
+            ? "Nouveau commerce, même compte. Stock, caisse et équipe seront séparés."
+            : "Donnez un nom à votre commerce pour démarrer ventes, stock et caisse."
+        }
+        footer={
+          addingAnother ? (
+            <p className="text-sm text-muted-foreground">
+              <Link
+                href="/app"
+                className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                Retour au tableau de bord
+              </Link>
+            </p>
+          ) : null
+        }
       >
         <OnboardingClient />
       </AuthShell>
