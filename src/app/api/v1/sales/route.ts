@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
+import { HttpError } from "@/lib/http-errors";
 import { createSaleBatchSchema, createSaleSchema } from "@/lib/validation";
 import { createSale, createSaleBatch, listSales } from "@/lib/sales";
 
@@ -32,7 +33,10 @@ export async function POST(req: NextRequest) {
     const raw = await req.json();
 
     if (raw && typeof raw === "object" && Array.isArray((raw as { lines?: unknown }).lines)) {
-      const body = createSaleBatchSchema.parse(raw);
+      const { expectedOrganizationId, ...body } = createSaleBatchSchema.parse(raw);
+      if (expectedOrganizationId && expectedOrganizationId !== organizationId) {
+        throw new HttpError(409, "Cette vente a ete saisie pour un autre bar que le bar actif");
+      }
       const result = await createSaleBatch({ organizationId, userId, ...body });
       return NextResponse.json(
         { batchId: body.batchId, sales: result.sales, replayed: result.replayed },

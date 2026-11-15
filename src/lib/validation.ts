@@ -59,6 +59,9 @@ export const createSaleBatchSchema = z.object({
   paymentMethod: z.enum(paymentMethods),
   soldAt: z.coerce.date().optional(),
   customerId: z.string().uuid().optional().nullable(),
+  // Bar pour lequel la facture a ete saisie (file hors-ligne mobile) : refusee
+  // si le bar actif du compte a change entre-temps.
+  expectedOrganizationId: z.string().uuid().optional(),
 });
 
 export const createStockMovementSchema = z
