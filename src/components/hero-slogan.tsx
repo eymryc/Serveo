@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { cn } from "@/lib/utils";
 
-/** Accroches orientées commerçant : gestion, stock, alertes, bénéfices. */
+/** Accroches courtes : tiennent sur une ligne mobile (~350px à ~1.9rem). */
 const PHRASES = [
   "géré sans prise de tête.",
-  "stock suivi en temps réel.",
+  "stock suivi en direct.",
   "alerté avant la rupture.",
-  "bénéfices visibles chaque jour.",
-  "ventes et caisse au même endroit.",
+  "bénéfices clairs chaque jour.",
+  "caisse et ventes réunies.",
 ] as const;
 
 const SEQUENCE = PHRASES.flatMap((phrase) => [phrase, 2800]);
@@ -35,14 +35,14 @@ export function HeroSlogan({
     <div className={cn(className)}>
       <h1
         className={cn(
-          "text-[clamp(2.65rem,7vw,4.35rem)] font-bold leading-[1.02] tracking-[-0.038em]",
+          "max-w-[20ch] text-[clamp(1.9rem,6.2vw,4.35rem)] font-bold leading-[1.08] tracking-[-0.038em] sm:max-w-none",
           onPhoto ? "text-white drop-shadow-[0_1px_18px_rgba(0,0,0,0.35)]" : "text-foreground"
         )}
       >
         <span className="block">Votre commerce,</span>
         <span
           className={cn(
-            "mt-2.5 block min-h-[1.15em] sm:mt-3.5",
+            "mt-2.5 block min-h-[2.2em] wrap-break-word sm:mt-3.5 sm:min-h-[1.15em]",
             onPhoto ? "text-[#9fd4b8]" : "text-primary"
           )}
           aria-live="polite"
