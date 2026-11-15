@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     // Protection contre la creation en masse de comptes, cf. lib/rate-limit.ts.
     const ip = getClientIp(req);
-    const limit = checkRateLimit(`register:ip:${ip}`, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
+    const limit = await checkRateLimit(`register:ip:${ip}`, RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
     if (limit.limited) {
       return NextResponse.json(
         { error: "Trop de tentatives, reessayez plus tard" },

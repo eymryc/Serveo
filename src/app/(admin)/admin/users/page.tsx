@@ -5,8 +5,17 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
-import { PageHeader } from "@/components/page-header";
+import {
+  AdminEmpty,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatus,
+  AdminTable,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from "@/components/admin-ui";
 import { PhoneInput } from "@/components/phone-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +94,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (!selected) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement des données au montage, pattern volontaire
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync sheet fields when selection changes
     setEditFirstName(selected.firstName);
     setEditLastName(selected.lastName);
     setEditPhone(selected.phone);
@@ -125,15 +134,15 @@ export default function AdminUsersPage() {
 
   async function createUser() {
     if (!createForm.firstName.trim() || !createForm.lastName.trim()) {
-      toast.error("Prenom et nom requis");
+      toast.error("Prénom et nom requis");
       return;
     }
     if (!createForm.phone.trim()) {
-      toast.error("Telephone requis");
+      toast.error("Téléphone requis");
       return;
     }
     if (createForm.password.length < 8) {
-      toast.error("Mot de passe : min. 8 caracteres");
+      toast.error("Mot de passe : min. 8 caractères");
       return;
     }
     setBusy(true);
@@ -150,7 +159,7 @@ export default function AdminUsersPage() {
           isPlatformAdmin: createForm.isPlatformAdmin ? 1 : 0,
         }),
       });
-      toast.success("Utilisateur cree");
+      toast.success("Utilisateur créé");
       setCreating(false);
       setCreateForm(EMPTY_CREATE);
       load();
@@ -170,7 +179,7 @@ export default function AdminUsersPage() {
         lastName: editLastName.trim(),
         phone: editPhone.trim(),
       },
-      "Profil mis a jour"
+      "Profil mis à jour"
     );
   }
 
@@ -181,13 +190,13 @@ export default function AdminUsersPage() {
       return;
     }
     const ok = window.confirm(
-      `Supprimer definitivement ${selected.firstName} ${selected.lastName} ? Cette action est irreversible.`
+      `Supprimer définitivement ${selected.firstName} ${selected.lastName} ? Cette action est irréversible.`
     );
     if (!ok) return;
     setBusy(true);
     try {
       await apiFetch(`/api/v1/admin/users/${selected.id}`, { method: "DELETE" });
-      toast.success("Utilisateur supprime");
+      toast.success("Utilisateur supprimé");
       setSelected(null);
       load();
     } catch (e) {
@@ -199,11 +208,11 @@ export default function AdminUsersPage() {
 
   async function accessAccount(user: UserRow) {
     if (user.id === session?.user?.id) {
-      toast.error("Vous etes deja sur ce compte");
+      toast.error("Vous êtes déjà sur ce compte");
       return;
     }
     if (!user.isActive) {
-      toast.error("Ce compte est desactive");
+      toast.error("Ce compte est désactivé");
       return;
     }
     setBusy(true);
@@ -213,7 +222,7 @@ export default function AdminUsersPage() {
       router.push(user.organizationId ? "/app" : "/onboarding");
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Impossible d'acceder au compte");
+      toast.error(e instanceof Error ? e.message : "Impossible d'accéder au compte");
     } finally {
       setBusy(false);
     }
@@ -221,85 +230,82 @@ export default function AdminUsersPage() {
 
   if (rows === null) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-40 w-full" />
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full max-w-lg" />
+        <Skeleton className="h-56 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
+    <div className="space-y-8">
+      <AdminPageHeader
         title="Utilisateurs"
-        description="Creer, modifier et modérer les comptes"
+        description="Créer, modifier, réinitialiser un mot de passe ou accéder à un compte."
         action={
           <Button onClick={() => setCreating(true)}>Nouvel utilisateur</Button>
         }
       />
 
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Rechercher un utilisateur…"
-        className="max-w-sm"
-      />
+      <AdminPanel>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un utilisateur…"
+            className="max-w-sm bg-card"
+          />
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} compte{filtered.length > 1 ? "s" : ""}
+          </p>
+        </div>
 
-      <div className="overflow-x-auto border border-border bg-card">
-        <table className="w-full min-w-[44rem] border-collapse text-sm">
-          <thead className="border-b border-border bg-muted/80">
-            <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              <th className="px-4 py-2.5">Compte</th>
-              <th className="px-4 py-2.5">Telephone</th>
-              <th className="px-4 py-2.5">Bar</th>
-              <th className="px-4 py-2.5">Role</th>
-              <th className="px-4 py-2.5">Statut</th>
+        <AdminTable minWidth="48rem">
+          <AdminTableHead>
+            <tr>
+              <AdminTh>Compte</AdminTh>
+              <AdminTh>Téléphone</AdminTh>
+              <AdminTh>Bar</AdminTh>
+              <AdminTh>Rôle</AdminTh>
+              <AdminTh>Statut</AdminTh>
             </tr>
-          </thead>
+          </AdminTableHead>
           <tbody>
             {filtered.map((u) => (
-              <tr
-                key={u.id}
-                onClick={() => setSelected(u)}
-                className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40"
-              >
-                <td className="px-4 py-2.5">
-                  <p className="font-semibold">
+              <AdminTr key={u.id} onClick={() => setSelected(u)}>
+                <AdminTd>
+                  <p className="font-semibold tracking-tight">
                     {u.firstName} {u.lastName}
                   </p>
-                  {u.isPlatformAdmin === 1 && (
-                    <p className="text-[11px] font-medium text-primary">Super-admin</p>
-                  )}
-                </td>
-                <td className="font-figures px-4 py-2.5 text-muted-foreground">{u.phone}</td>
-                <td className="px-4 py-2.5">{u.organizationName ?? "—"}</td>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {u.organizationId ? (u.role === "admin" ? "Gerant" : "Barman") : "Sans bar"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold",
-                      u.isActive ? "text-success" : "text-destructive"
-                    )}
-                  >
-                    {u.isActive ? "Actif" : "Desactive"}
-                  </span>
-                </td>
-              </tr>
+                  {u.isPlatformAdmin === 1 ? (
+                    <p className="text-[11px] font-semibold tracking-wide text-primary uppercase">
+                      Super-admin
+                    </p>
+                  ) : null}
+                </AdminTd>
+                <AdminTd figures muted>
+                  {u.phone}
+                </AdminTd>
+                <AdminTd>{u.organizationName ?? "—"}</AdminTd>
+                <AdminTd muted>
+                  {u.organizationId
+                    ? u.role === "admin"
+                      ? "Gérant"
+                      : "Barman"
+                    : "Sans bar"}
+                </AdminTd>
+                <AdminTd>
+                  <AdminStatus active={!!u.isActive} />
+                </AdminTd>
+              </AdminTr>
             ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  Aucun utilisateur trouve.
-                </td>
-              </tr>
-            )}
+            {filtered.length === 0 ? (
+              <AdminEmpty colSpan={5}>Aucun utilisateur trouvé.</AdminEmpty>
+            ) : null}
           </tbody>
-        </table>
-      </div>
+        </AdminTable>
+      </AdminPanel>
 
-      {/* Create */}
       <Sheet
         open={creating}
         onOpenChange={(open) => {
@@ -310,12 +316,12 @@ export default function AdminUsersPage() {
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
           <SheetHeader className="border-b border-border">
             <SheetTitle>Nouvel utilisateur</SheetTitle>
-            <SheetDescription>Creer un compte depuis le back-office</SheetDescription>
+            <SheetDescription>Créer un compte depuis le back-office</SheetDescription>
           </SheetHeader>
           <div className="space-y-4 overflow-y-auto px-4 py-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="create-first">Prenom</Label>
+                <Label htmlFor="create-first">Prénom</Label>
                 <Input
                   id="create-first"
                   value={createForm.firstName}
@@ -332,7 +338,7 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Telephone</Label>
+              <Label>Téléphone</Label>
               <PhoneInput
                 value={createForm.phone}
                 onChange={(phone) => setCreateForm((f) => ({ ...f, phone }))}
@@ -345,7 +351,7 @@ export default function AdminUsersPage() {
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="Min. 8 caracteres"
+                placeholder="Min. 8 caractères"
               />
             </div>
             <div className="space-y-1.5">
@@ -369,9 +375,9 @@ export default function AdminUsersPage() {
                 </SelectContent>
               </Select>
             </div>
-            {createForm.organizationId && (
+            {createForm.organizationId ? (
               <div className="space-y-1.5">
-                <Label>Role dans le bar</Label>
+                <Label>Rôle dans le bar</Label>
                 <Select
                   value={createForm.role}
                   onValueChange={(role: "admin" | "member") =>
@@ -382,12 +388,12 @@ export default function AdminUsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Gerant</SelectItem>
+                    <SelectItem value="admin">Gérant</SelectItem>
                     <SelectItem value="member">Barman</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            ) : null}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -399,16 +405,15 @@ export default function AdminUsersPage() {
               Super-admin plateforme
             </label>
             <Button className="w-full" disabled={busy} onClick={createUser}>
-              Creer le compte
+              Créer le compte
             </Button>
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Edit */}
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
-          {selected && (
+          {selected ? (
             <>
               <SheetHeader className="border-b border-border">
                 <SheetTitle>
@@ -422,12 +427,12 @@ export default function AdminUsersPage() {
                   disabled={busy || !selected.isActive || selected.id === session?.user?.id}
                   onClick={() => accessAccount(selected)}
                 >
-                  Acceder a ce compte
+                  Accéder à ce compte
                 </Button>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-first">Prenom</Label>
+                    <Label htmlFor="edit-first">Prénom</Label>
                     <Input
                       id="edit-first"
                       value={editFirstName}
@@ -444,7 +449,7 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Telephone</Label>
+                  <Label>Téléphone</Label>
                   <PhoneInput value={editPhone} onChange={setEditPhone} />
                 </div>
                 <Button
@@ -469,7 +474,7 @@ export default function AdminUsersPage() {
                       patch(
                         selected.id,
                         { organizationId: v === "none" ? null : v },
-                        "Bar mis a jour"
+                        "Bar mis à jour"
                       )
                     }
                   >
@@ -487,25 +492,25 @@ export default function AdminUsersPage() {
                   </Select>
                 </div>
 
-                {selected.organizationId && (
+                {selected.organizationId ? (
                   <div className="space-y-1.5">
-                    <Label>Role dans le bar</Label>
+                    <Label>Rôle dans le bar</Label>
                     <Select
                       value={selected.role}
                       onValueChange={(role) =>
-                        patch(selected.id, { role }, "Role mis a jour")
+                        patch(selected.id, { role }, "Rôle mis à jour")
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Gerant</SelectItem>
+                        <SelectItem value="admin">Gérant</SelectItem>
                         <SelectItem value="member">Barman</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+                ) : null}
 
                 <div className="space-y-1.5">
                   <Label>Nouveau mot de passe</Label>
@@ -513,21 +518,21 @@ export default function AdminUsersPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 8 caracteres"
+                    placeholder="Min. 8 caractères"
                   />
                   <Button
                     disabled={busy || password.length < 8}
                     variant="secondary"
                     className="w-full"
                     onClick={() =>
-                      patch(selected.id, { password }, "Mot de passe reinitialise")
+                      patch(selected.id, { password }, "Mot de passe réinitialisé")
                     }
                   >
-                    Reinitialiser le mot de passe
+                    Réinitialiser le mot de passe
                   </Button>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 border-t border-border pt-4">
                   <Button
                     disabled={busy}
                     variant={selected.isPlatformAdmin ? "outline" : "secondary"}
@@ -536,8 +541,8 @@ export default function AdminUsersPage() {
                         selected.id,
                         { isPlatformAdmin: selected.isPlatformAdmin ? 0 : 1 },
                         selected.isPlatformAdmin
-                          ? "Droits plateforme retires"
-                          : "Droits plateforme accordes"
+                          ? "Droits plateforme retirés"
+                          : "Droits plateforme accordés"
                       )
                     }
                   >
@@ -552,23 +557,23 @@ export default function AdminUsersPage() {
                       patch(
                         selected.id,
                         { isActive: selected.isActive ? 0 : 1 },
-                        selected.isActive ? "Compte desactive" : "Compte reactive"
+                        selected.isActive ? "Compte désactivé" : "Compte réactivé"
                       )
                     }
                   >
-                    {selected.isActive ? "Desactiver le compte" : "Reactiver le compte"}
+                    {selected.isActive ? "Désactiver le compte" : "Réactiver le compte"}
                   </Button>
                   <Button
                     disabled={busy || selected.id === session?.user?.id}
                     variant="destructive"
                     onClick={deleteUser}
                   >
-                    Supprimer definitivement
+                    Supprimer définitivement
                   </Button>
                 </div>
               </div>
             </>
-          )}
+          ) : null}
         </SheetContent>
       </Sheet>
     </div>

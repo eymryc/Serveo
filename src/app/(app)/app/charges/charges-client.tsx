@@ -20,6 +20,11 @@ import {
 import { PeriodSelector } from "@/components/dashboard/period-selector";
 import { PageHeader } from "@/components/page-header";
 import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTr,
   KpiCell,
   PAGE_SIZES,
   paginate,
@@ -202,16 +207,18 @@ export default function ChargesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Gestion"
         title="Charges"
         description="Suivi des dépenses du bar — réservé au gérant."
         action={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> Nouvelle charge
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodSelector value={period} onChange={setPeriod} />
+            <Button onClick={openCreate}>
+              <Plus className="size-4" /> Nouvelle charge
+            </Button>
+          </div>
         }
       />
-
-      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
 
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3">
@@ -260,8 +267,8 @@ export default function ChargesPage() {
           </div>
         )}
 
-        <div className="border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+        <div className="border border-border/80 bg-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-3">
             <div className="relative min-w-0 flex-1 basis-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -300,82 +307,75 @@ export default function ChargesPage() {
             </Select>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse text-sm">
-              <thead className="border-b border-border bg-muted/80">
-                <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                  <SortableTh
-                    label="Date"
-                    active={sort.key === "date"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("date")}
-                  />
-                  <SortableTh
-                    label="Libelle"
-                    active={sort.key === "label"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("label")}
-                  />
-                  <SortableTh
-                    label="Categorie"
-                    active={sort.key === "category"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("category")}
-                    className="hidden sm:table-cell"
-                  />
-                  <SortableTh
-                    label="Montant"
-                    align="right"
-                    active={sort.key === "amount"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("amount")}
-                  />
-                  <SortableTh
-                    label="Paiement"
-                    active={sort.key === "payment"}
-                    dir={sort.dir}
-                    onClick={() => toggleSort("payment")}
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {pager.rows.map((ex) => (
-                  <tr
-                    key={ex.id}
-                    className="border-b border-l-2 border-border border-l-primary/40 transition-colors last:border-b-0 hover:bg-muted/40"
-                  >
-                    <td className="font-figures px-4 py-2.5 text-muted-foreground tabular-nums">
-                      {new Date(ex.expenseDate).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <p className="font-semibold leading-snug tracking-tight">{ex.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground sm:hidden">
-                        {categoryName(ex.categoryId)}
-                      </p>
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-muted-foreground sm:table-cell">
+          <DataTable minWidth="40rem" className="border-0">
+            <DataTableHead>
+              <tr>
+                <SortableTh
+                  label="Date"
+                  active={sort.key === "date"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("date")}
+                />
+                <SortableTh
+                  label="Libelle"
+                  active={sort.key === "label"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("label")}
+                />
+                <SortableTh
+                  label="Categorie"
+                  active={sort.key === "category"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("category")}
+                  className="hidden sm:table-cell"
+                />
+                <SortableTh
+                  label="Montant"
+                  align="right"
+                  active={sort.key === "amount"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("amount")}
+                />
+                <SortableTh
+                  label="Paiement"
+                  active={sort.key === "payment"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("payment")}
+                />
+              </tr>
+            </DataTableHead>
+            <tbody>
+              {pager.rows.map((ex) => (
+                <DataTr key={ex.id} className="border-l-2 border-l-primary/40">
+                  <DataTd figures muted>
+                    {new Date(ex.expenseDate).toLocaleDateString("fr-FR")}
+                  </DataTd>
+                  <DataTd>
+                    <p className="font-semibold leading-snug tracking-tight">{ex.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground sm:hidden">
                       {categoryName(ex.categoryId)}
-                    </td>
-                    <td className="font-figures px-4 py-2.5 text-right text-base font-bold tabular-nums">
-                      {formatFcfa(Number(ex.amount))}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge tone="neutral">{paymentLabel(ex.paymentMethod)}</StatusBadge>
-                    </td>
-                  </tr>
-                ))}
-                {pager.total === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      {expenses.length === 0
-                        ? "Aucune charge sur la periode. Ajoutez-en avec « Nouvelle charge »."
-                        : "Aucune charge ne correspond aux filtres."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </p>
+                  </DataTd>
+                  <DataTd muted className="hidden sm:table-cell">
+                    {categoryName(ex.categoryId)}
+                  </DataTd>
+                  <DataTd align="right" figures className="text-base font-bold">
+                    {formatFcfa(Number(ex.amount))}
+                  </DataTd>
+                  <DataTd>
+                    <StatusBadge tone="neutral">{paymentLabel(ex.paymentMethod)}</StatusBadge>
+                  </DataTd>
+                </DataTr>
+              ))}
+              {pager.total === 0 ? (
+                <DataEmpty colSpan={5}>
+                  {expenses.length === 0
+                    ? "Aucune charge sur la periode. Ajoutez-en avec « Nouvelle charge »."
+                    : "Aucune charge ne correspond aux filtres."}
+                </DataEmpty>
+              ) : null}
+            </tbody>
+          </DataTable>
 
           <TablePagination
             from={pager.from}

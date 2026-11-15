@@ -325,19 +325,34 @@
     animation: hero-cursor-blink 0.95s step-end infinite;
   }
 
+  .hero-type-animation--on-photo::after {
+    background-color: #b8e0cc;
+  }
+
   @keyframes landing-ken {
     from {
       transform: scale(1) translate3d(0, 0, 0);
     }
     to {
-      transform: scale(1.07) translate3d(-1.2%, -0.6%, 0);
+      transform: scale(1.08) translate3d(-1.5%, -0.8%, 0);
     }
   }
 
   @keyframes landing-reveal {
     from {
       opacity: 0;
-      transform: translate3d(0, 14px, 0);
+      transform: translate3d(0, 18px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes landing-cta-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
     }
     to {
       opacity: 1;
@@ -346,27 +361,89 @@
   }
 
   .landing-hero-image {
-    transform-origin: 62% 42%;
+    transform-origin: 62% 48%;
     will-change: transform;
   }
 
-  .landing-reveal {
-    animation: landing-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  .auth-hero-image {
+    transform-origin: 58% 42%;
+    will-change: transform;
+  }
+
+  .landing-reveal,
+  .auth-reveal {
+    animation: landing-reveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .auth-submit {
+    box-shadow: 0 14px 32px -18px color-mix(in oklch, var(--primary) 55%, transparent);
+  }
+
+  .admin-reveal {
+    animation: landing-reveal 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .admin-kpi {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--card) 92%, transparent),
+      color-mix(in oklch, var(--muted) 35%, var(--card))
+    );
+  }
+
+  .admin-shell thead,
+  .app-shell thead {
+    background: color-mix(in oklch, var(--muted) 72%, transparent);
+  }
+
+  .admin-shell tbody tr,
+  .app-shell tbody tr {
+    transition: background-color 150ms ease;
+  }
+
+  /* Tables de données — look ticket / Bouteille */
+  .data-table__head {
+    background: color-mix(in oklch, var(--muted) 78%, transparent);
+  }
+
+  .data-table--sticky .data-table__head th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: color-mix(in oklch, var(--muted) 88%, var(--card));
+    backdrop-filter: blur(6px);
+  }
+
+  .data-table__row {
+    transition: background-color 150ms ease;
+  }
+
+  .data-table__row:hover {
+    background: color-mix(in oklch, var(--primary) 4%, transparent);
   }
 
   .landing-feature-item {
-    animation: landing-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: landing-reveal 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .landing-cta-primary {
+    animation: landing-cta-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+    box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.55);
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .landing-hero-image {
-      animation: landing-ken 22s ease-in-out infinite alternate;
+    .landing-hero-image,
+    .auth-hero-image {
+      animation: landing-ken 24s ease-in-out infinite alternate;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .landing-reveal,
-    .landing-feature-item {
+    .auth-reveal,
+    .admin-reveal,
+    .landing-feature-item,
+    .landing-cta-primary {
       animation: none;
     }
   }

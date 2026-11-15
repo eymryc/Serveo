@@ -12,6 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/password-input";
 import { PageHeader } from "@/components/page-header";
+import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+} from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -27,6 +35,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +76,8 @@ export function EquipeClient() {
   const [creating, setCreating] = useState(false);
 
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   function fetchMembers() {
@@ -112,6 +130,24 @@ export function EquipeClient() {
     }
   }
 
+  async function handleResetPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setBusyId(resetTarget.id);
+    try {
+      await apiFetch(`/api/v1/team/${resetTarget.id}/password`, {
+        method: "POST",
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      toast.success(`Mot de passe redefini — communiquez-le a ${resetTarget.name} : ${resetPassword}`);
+      setResetTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleRemove() {
     if (!removeTarget) return;
     setBusyId(removeTarget.id);
@@ -140,8 +176,9 @@ export function EquipeClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Equipe"
-        description="Creez les comptes de vos barmen et gerez les roles. Un gerant voit tout, un barman ne voit que la saisie et le stock."
+        eyebrow="Administration"
+        title="Équipe"
+        description="Créez les comptes de vos barmen et gérez les rôles. Un gérant voit tout, un barman ne voit que la saisie et le stock."
       />
 
       <div className="border border-border bg-card">
@@ -214,87 +251,119 @@ export function EquipeClient() {
           </Button>
         </form>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[32rem] border-collapse text-sm">
-            <thead className="border-b border-border bg-muted/60">
-              <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                <th className="px-4 py-2.5 font-semibold sm:px-5">Membre</th>
-                <th className="px-4 py-2.5 font-semibold">Role</th>
-                <th className="w-14 px-3 py-2.5 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => {
-                const isSelf = m.id === currentUserId;
-                return (
-                  <tr
-                    key={m.id}
-                    className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/40"
-                  >
-                    <td className="px-4 py-3 sm:px-5">
-                      <p className="font-semibold tracking-tight">
-                        {m.firstName} {m.lastName}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {m.phone}
-                        {isSelf ? " · vous" : ""}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "text-xs font-semibold",
-                          m.role === "admin" ? "text-primary" : "text-muted-foreground"
-                        )}
-                      >
-                        {ROLE_LABELS[m.role]}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {!isSelf && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8" disabled={busyId === m.id}>
-                              <MoreHorizontal className="size-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {m.role !== "admin" && (
-                              <DropdownMenuItem onClick={() => handleRoleChange(m.id, "admin")}>
-                                Passer gerant
-                              </DropdownMenuItem>
-                            )}
-                            {m.role !== "member" && (
-                              <DropdownMenuItem onClick={() => handleRoleChange(m.id, "member")}>
-                                Passer barman
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setRemoveTarget({ id: m.id, name: `${m.firstName} ${m.lastName}` })}
-                            >
-                              Retirer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+        <DataTable minWidth="32rem">
+          <DataTableHead>
+            <tr>
+              <DataTh>Membre</DataTh>
+              <DataTh>Rôle</DataTh>
+              <DataTh align="right" className="w-14">
+                Actions
+              </DataTh>
+            </tr>
+          </DataTableHead>
+          <tbody>
+            {members.map((m) => {
+              const isSelf = m.id === currentUserId;
+              return (
+                <DataTr key={m.id}>
+                  <DataTd>
+                    <p className="font-semibold tracking-tight">
+                      {m.firstName} {m.lastName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {m.phone}
+                      {isSelf ? " · vous" : ""}
+                    </p>
+                  </DataTd>
+                  <DataTd>
+                    <span
+                      className={cn(
+                        "text-xs font-semibold",
+                        m.role === "admin" ? "text-primary" : "text-muted-foreground"
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {members.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    Aucun membre pour l&apos;instant.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    >
+                      {ROLE_LABELS[m.role]}
+                    </span>
+                  </DataTd>
+                  <DataTd align="right" className="px-3">
+                    {!isSelf && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-8" disabled={busyId === m.id}>
+                            <MoreHorizontal className="size-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {m.role !== "admin" && (
+                            <DropdownMenuItem onClick={() => handleRoleChange(m.id, "admin")}>
+                              Passer gerant
+                            </DropdownMenuItem>
+                          )}
+                          {m.role !== "member" && (
+                            <DropdownMenuItem onClick={() => handleRoleChange(m.id, "member")}>
+                              Passer barman
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setResetPassword("");
+                              setResetTarget({ id: m.id, name: `${m.firstName} ${m.lastName}` });
+                            }}
+                          >
+                            Redefinir le mot de passe
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setRemoveTarget({ id: m.id, name: `${m.firstName} ${m.lastName}` })}
+                          >
+                            Retirer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </DataTd>
+                </DataTr>
+              );
+            })}
+            {members.length === 0 ? (
+              <DataEmpty colSpan={3}>Aucun membre pour l&apos;instant.</DataEmpty>
+            ) : null}
+          </tbody>
+        </DataTable>
       </div>
+
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Nouveau mot de passe</DialogTitle>
+              <DialogDescription>
+                Pour {resetTarget?.name}. Communiquez-le lui : il pourra se connecter immediatement avec.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-password">Mot de passe temporaire</Label>
+              <PasswordInput
+                id="reset-password"
+                required
+                minLength={8}
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setResetTarget(null)}>
+                Retour
+              </Button>
+              <Button type="submit" disabled={!!busyId}>
+                Enregistrer
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent>

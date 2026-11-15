@@ -1,10 +1,12 @@
 import "server-only";
 import { and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cashSessions, customerPayments, sales } from "@/db/schema";
+import { cashSessions, customerPayments, organizationPaymentMethods, sales } from "@/db/schema";
 import { HttpError } from "@/lib/http-errors";
 
-const COUNTABLE_METHODS = [
+export type MethodTotals = Record<string, number>;
+
+const LEGACY_COUNT_KEYS = [
   "especes",
   "orange_money",
   "mtn_momo",
@@ -12,22 +14,27 @@ const COUNTABLE_METHODS = [
   "carte_virement",
 ] as const;
 
-export type CashMethod = (typeof COUNTABLE_METHODS)[number];
-
-export type MethodTotals = Record<CashMethod, number>;
-
-function emptyTotals(): MethodTotals {
-  return {
-    especes: 0,
-    orange_money: 0,
-    mtn_momo: 0,
-    wave: 0,
-    carte_virement: 0,
-  };
+async function countableCodes(organizationId: string) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      code: organizationPaymentMethods.code,
+      kind: organizationPaymentMethods.kind,
+    })
+    .from(organizationPaymentMethods)
+    .where(
+      and(
+        eq(organizationPaymentMethods.organizationId, organizationId),
+        eq(organizationPaymentMethods.isActive, 1)
+      )
+    );
+  // Le credit client n'est pas "compte" en caisse (dette, pas d'argent recu).
+  const codes = rows.filter((r) => r.kind !== "credit").map((r) => r.code);
+  return codes.length > 0 ? codes : [...LEGACY_COUNT_KEYS];
 }
 
-function isCountableMethod(method: string): method is CashMethod {
-  return (COUNTABLE_METHODS as readonly string[]).includes(method);
+function emptyTotals(codes: string[]): MethodTotals {
+  return Object.fromEntries(codes.map((c) => [c, 0]));
 }
 
 export async function getOpenCashSession(organizationId: string) {
@@ -76,10 +83,12 @@ async function computeExpectedByMethod(
   sessionId: string,
   openedAt: Date,
   closedAt: Date | null,
-  openingFloat: number
+  openingFloat: number,
+  codes: string[]
 ): Promise<MethodTotals> {
   const db = getDb();
   const windowEnd = closedAt ?? new Date();
+  const codeSet = new Set(codes);
 
   const saleRows = await db
     .select({
@@ -93,11 +102,7 @@ async function computeExpectedByMethod(
         isNull(sales.cancelledAt),
         or(
           eq(sales.cashSessionId, sessionId),
-          and(
-            isNull(sales.cashSessionId),
-            gte(sales.soldAt, openedAt),
-            lte(sales.soldAt, windowEnd)
-          )
+          and(isNull(sales.cashSessionId), gte(sales.soldAt, openedAt), lte(sales.soldAt, windowEnd))
         )
       )
     )
@@ -124,26 +129,32 @@ async function computeExpectedByMethod(
     )
     .groupBy(customerPayments.paymentMethod);
 
-  const expected = emptyTotals();
-  // Le fond d'ouverture ne concerne que les especes.
-  expected.especes = openingFloat;
+  const expected = emptyTotals(codes);
+  if (codes.includes("especes")) expected.especes = openingFloat;
 
   for (const row of saleRows) {
-    if (isCountableMethod(row.paymentMethod)) {
-      expected[row.paymentMethod] += Number(row.total);
-    }
+    if (codeSet.has(row.paymentMethod)) expected[row.paymentMethod] += Number(row.total);
   }
   for (const row of paymentRows) {
-    if (isCountableMethod(row.paymentMethod)) {
-      expected[row.paymentMethod] += Number(row.total);
-    }
+    if (codeSet.has(row.paymentMethod)) expected[row.paymentMethod] += Number(row.total);
   }
 
   return expected;
 }
 
-function countedFromSession(session: typeof cashSessions.$inferSelect): MethodTotals | null {
+function countedFromSession(
+  session: typeof cashSessions.$inferSelect,
+  codes: string[]
+): MethodTotals | null {
   if (session.status !== "closed") return null;
+  if (session.countedByMethod) {
+    const out = emptyTotals(codes);
+    for (const code of codes) {
+      out[code] = Number(session.countedByMethod[code] ?? 0);
+    }
+    return out;
+  }
+  // Fallback legacy (sessions cloturees avant la migration JSON).
   return {
     especes: Number(session.countedEspeces ?? 0),
     orange_money: Number(session.countedOrangeMoney ?? 0),
@@ -154,24 +165,50 @@ function countedFromSession(session: typeof cashSessions.$inferSelect): MethodTo
 }
 
 function variances(expected: MethodTotals, counted: MethodTotals): MethodTotals {
-  return {
-    especes: counted.especes - expected.especes,
-    orange_money: counted.orange_money - expected.orange_money,
-    mtn_momo: counted.mtn_momo - expected.mtn_momo,
-    wave: counted.wave - expected.wave,
-    carte_virement: counted.carte_virement - expected.carte_virement,
+  const keys = new Set([...Object.keys(expected), ...Object.keys(counted)]);
+  const out: MethodTotals = {};
+  for (const key of keys) out[key] = (counted[key] ?? 0) - (expected[key] ?? 0);
+  return out;
+}
+
+function normalizeCountedInput(
+  input: {
+    countedByMethod?: Record<string, number>;
+    countedEspeces?: number;
+    countedOrangeMoney?: number;
+    countedMtnMomo?: number;
+    countedWave?: number;
+    countedCarteVirement?: number;
+  },
+  codes: string[]
+): MethodTotals {
+  if (input.countedByMethod) {
+    const out = emptyTotals(codes);
+    for (const code of codes) out[code] = Number(input.countedByMethod[code] ?? 0);
+    return out;
+  }
+  const legacy: MethodTotals = {
+    especes: input.countedEspeces ?? 0,
+    orange_money: input.countedOrangeMoney ?? 0,
+    mtn_momo: input.countedMtnMomo ?? 0,
+    wave: input.countedWave ?? 0,
+    carte_virement: input.countedCarteVirement ?? 0,
   };
+  const out = emptyTotals(codes);
+  for (const code of codes) out[code] = Number(legacy[code] ?? 0);
+  return out;
 }
 
 export async function closeCashSession(input: {
   organizationId: string;
   userId: string;
   sessionId: string;
-  countedEspeces: number;
-  countedOrangeMoney: number;
-  countedMtnMomo: number;
-  countedWave: number;
-  countedCarteVirement: number;
+  countedByMethod?: Record<string, number>;
+  countedEspeces?: number;
+  countedOrangeMoney?: number;
+  countedMtnMomo?: number;
+  countedWave?: number;
+  countedCarteVirement?: number;
   note?: string;
   closedAt?: Date;
 }) {
@@ -180,10 +217,7 @@ export async function closeCashSession(input: {
     .select()
     .from(cashSessions)
     .where(
-      and(
-        eq(cashSessions.id, input.sessionId),
-        eq(cashSessions.organizationId, input.organizationId)
-      )
+      and(eq(cashSessions.id, input.sessionId), eq(cashSessions.organizationId, input.organizationId))
     );
 
   if (!session) throw new HttpError(404, "Session de caisse introuvable");
@@ -200,21 +234,19 @@ export async function closeCashSession(input: {
     throw new HttpError(400, "La cloture ne peut pas etre avant l'ouverture");
   }
 
+  const codes = await countableCodes(input.organizationId);
   const expectedByMethod = await computeExpectedByMethod(
     input.organizationId,
     session.id,
     session.openedAt,
     closedAt,
-    Number(session.openingFloat)
+    Number(session.openingFloat),
+    codes
   );
-
-  const countedByMethod: MethodTotals = {
-    especes: input.countedEspeces,
-    orange_money: input.countedOrangeMoney,
-    mtn_momo: input.countedMtnMomo,
-    wave: input.countedWave,
-    carte_virement: input.countedCarteVirement,
-  };
+  const countedByMethod = normalizeCountedInput(input, codes);
+  const countedJson = Object.fromEntries(
+    Object.entries(countedByMethod).map(([k, v]) => [k, v.toString()])
+  );
 
   const [updated] = await db
     .update(cashSessions)
@@ -222,11 +254,13 @@ export async function closeCashSession(input: {
       status: "closed",
       closedAt,
       closedByUserId: input.userId,
-      countedEspeces: input.countedEspeces.toString(),
-      countedOrangeMoney: input.countedOrangeMoney.toString(),
-      countedMtnMomo: input.countedMtnMomo.toString(),
-      countedWave: input.countedWave.toString(),
-      countedCarteVirement: input.countedCarteVirement.toString(),
+      countedByMethod: countedJson,
+      // Miroir legacy pour les lecteurs anciens.
+      countedEspeces: (countedByMethod.especes ?? 0).toString(),
+      countedOrangeMoney: (countedByMethod.orange_money ?? 0).toString(),
+      countedMtnMomo: (countedByMethod.mtn_momo ?? 0).toString(),
+      countedWave: (countedByMethod.wave ?? 0).toString(),
+      countedCarteVirement: (countedByMethod.carte_virement ?? 0).toString(),
       note: input.note?.trim() || null,
     })
     .where(and(eq(cashSessions.id, input.sessionId), eq(cashSessions.status, "open")))
@@ -263,19 +297,23 @@ export async function getCashSessionSummary(organizationId: string, sessionId: s
 
   if (!session) throw new HttpError(404, "Session de caisse introuvable");
 
+  const codes = await countableCodes(organizationId);
   const expectedByMethod = await computeExpectedByMethod(
     organizationId,
     session.id,
     session.openedAt,
     session.closedAt,
-    Number(session.openingFloat)
+    Number(session.openingFloat),
+    codes
   );
+  const countedByMethod = countedFromSession(session, codes);
 
-  const countedByMethod = countedFromSession(session);
   return {
     session,
     expectedByMethod,
     countedByMethod,
     variances: countedByMethod ? variances(expectedByMethod, countedByMethod) : null,
+    countableMethods: codes,
+    legacyKeys: LEGACY_COUNT_KEYS,
   };
 }

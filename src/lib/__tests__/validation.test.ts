@@ -31,11 +31,13 @@ describe("createSaleSchema", () => {
     }).success).toBe(false);
   });
 
-  it("rejects an unknown payment method", () => {
+  it("rejects a payment method code with invalid characters", () => {
+    // Le catalogue autorise des codes libres (Moov Money, etc.) : Zod ne
+    // verifie que le format. L'appartenance au bar est verifiee en metier.
     const result = createSaleSchema.safeParse({
       productId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       quantity: 1,
-      paymentMethod: "bitcoin",
+      paymentMethod: "Orange Money",
     });
     expect(result.success).toBe(false);
   });

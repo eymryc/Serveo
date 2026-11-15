@@ -228,7 +228,8 @@ export async function completeInventorySession(input: {
       const [product] = await tx
         .select()
         .from(products)
-        .where(eq(products.id, line.productId));
+        .where(and(eq(products.id, line.productId), eq(products.organizationId, input.organizationId)))
+        .for("update");
 
       if (!product) {
         throw new HttpError(404, `Article introuvable: ${line.productName}`);

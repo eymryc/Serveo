@@ -9,6 +9,11 @@ import { DEFAULT_PERIOD_SELECTION, periodSelectionQuery } from "@/lib/dashboard-
 import { PAYMENT_METHOD_LABELS, type DashboardData, type PeriodSelection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
+import {
+  DataTable as SharedDataTable,
+  DataTableHead,
+  DataTh,
+} from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,27 +30,18 @@ function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto border border-border bg-card">
-      <table className="w-full min-w-[20rem] border-collapse text-sm">
-        <thead className="border-b border-border bg-muted/80">
-          <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            {columns.map((col) => (
-              <th
-                key={col.label}
-                className={cn(
-                  "px-4 py-2.5 font-semibold",
-                  col.align === "right" && "text-right",
-                  col.className
-                )}
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
+    <SharedDataTable minWidth="20rem">
+      <DataTableHead>
+        <tr>
+          {columns.map((col) => (
+            <DataTh key={col.label} align={col.align} className={col.className}>
+              {col.label}
+            </DataTh>
+          ))}
+        </tr>
+      </DataTableHead>
+      <tbody>{children}</tbody>
+    </SharedDataTable>
   );
 }
 
@@ -98,10 +94,11 @@ export default function RapportsPageClient() {
   const shell = (
     <>
       <PageHeader
+        eyebrow="Gestion"
         title="Rapports"
         description="Analyses détaillées — ventes, charges et stock."
+        action={<PeriodSelector layout="bar" value={period} onChange={setPeriod} />}
       />
-      <PeriodSelector layout="bar" value={period} onChange={setPeriod} />
     </>
   );
 

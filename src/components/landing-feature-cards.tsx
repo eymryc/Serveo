@@ -1,31 +1,22 @@
-import { BellRing, RefreshCcw, Wallet, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const FEATURES: {
-  icon: LucideIcon;
-  index: string;
-  title: string;
-  description: string;
-}[] = [
+const FEATURES = [
   {
-    icon: Wallet,
     index: "01",
     title: "Encaissez partout",
-    description: "Espèces, Orange Money, MTN MoMo, Wave — un seul total.",
+    description: "Espèces, Orange Money, MTN MoMo, Wave — un seul total de caisse.",
   },
   {
-    icon: RefreshCcw,
     index: "02",
-    title: "Stock à jour",
-    description: "Chaque vente met à jour le stock. Fini les écarts.",
+    title: "Stock toujours juste",
+    description: "Chaque vente met à jour le stock. Les écarts se voient tout de suite.",
   },
   {
-    icon: BellRing,
     index: "03",
     title: "Alertes & marges",
-    description: "Rupture anticipée. Bénéfices visibles pour le gérant.",
+    description: "Rupture anticipée. Bénéfices clairs pour le gérant, chaque jour.",
   },
-];
+] as const;
 
 /** Preuves produit en colonnes éditoriales — pas de cartes. */
 export function LandingFeatureCards({ className }: { className?: string }) {
@@ -36,30 +27,24 @@ export function LandingFeatureCards({ className }: { className?: string }) {
         className
       )}
     >
-      {FEATURES.map(({ icon: Icon, index, title, description }, i) => (
+      {FEATURES.map(({ index, title, description }, i) => (
         <li
           key={title}
           className={cn(
-            "landing-feature-item flex gap-4 px-0 py-7 sm:flex-col sm:gap-5 sm:px-6 sm:py-2 sm:first:pl-0 sm:last:pr-0",
+            "landing-feature-item px-0 py-8 sm:px-7 sm:py-10 sm:first:pl-0 sm:last:pr-0",
             i === 1 && "sm:[animation-delay:90ms]",
             i === 2 && "sm:[animation-delay:180ms]"
           )}
         >
-          <div className="flex items-center gap-3 sm:items-start">
-            <span className="font-figures text-[13px] font-medium tracking-wider text-primary/70">
-              {index}
-            </span>
-            <Icon className="size-5 shrink-0 text-primary sm:hidden" strokeWidth={1.75} />
-          </div>
-          <div>
-            <div className="mb-3 hidden sm:block">
-              <Icon className="size-5 text-primary" strokeWidth={1.75} />
-            </div>
-            <h3 className="text-[1.05rem] font-bold tracking-tight text-foreground">{title}</h3>
-            <p className="mt-2 max-w-[18rem] text-[0.95rem] leading-relaxed text-muted-foreground">
-              {description}
-            </p>
-          </div>
+          <span className="font-figures text-[13px] font-semibold tracking-[0.18em] text-primary/70">
+            {index}
+          </span>
+          <h3 className="mt-4 text-[1.15rem] font-bold tracking-tight text-foreground">
+            {title}
+          </h3>
+          <p className="mt-2.5 max-w-[18rem] text-[0.98rem] leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         </li>
       ))}
     </ul>

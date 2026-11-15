@@ -33,12 +33,13 @@ export type Sale = {
   cancelReason?: string | null;
 };
 
-export type CashMethodTotals = {
-  especes: number;
-  orange_money: number;
-  mtn_momo: number;
-  wave: number;
-  carte_virement: number;
+export type CashMethodTotals = Record<string, number> & {
+  // Champs historiques encore utiles pour le typage des ecrans CI.
+  especes?: number;
+  orange_money?: number;
+  mtn_momo?: number;
+  wave?: number;
+  carte_virement?: number;
 };
 
 export type CashSession = {
@@ -50,6 +51,7 @@ export type CashSession = {
   openedByUserId: string;
   closedByUserId: string | null;
   openingFloat: string;
+  countedByMethod?: Record<string, string> | null;
   countedEspeces: string | null;
   countedOrangeMoney: string | null;
   countedMtnMomo: string | null;
@@ -64,6 +66,7 @@ export type CashSessionSummary = {
   expectedByMethod: CashMethodTotals;
   countedByMethod: CashMethodTotals | null;
   variances: CashMethodTotals | null;
+  countableMethods?: string[];
 };
 
 export type Customer = {
@@ -232,6 +235,7 @@ export type Organization = {
   city: string | null;
   country: string | null;
   currency: string;
+  timezone?: string;
   monthlyRevenueTarget: string | null;
   monthlyMarginTargetPct: string | null;
   defaultStockAlertThreshold: number;

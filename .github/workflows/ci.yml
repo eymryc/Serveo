@@ -9,6 +9,24 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: serveo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/serveo_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +48,25 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+      # Les migrations doivent recreer le schema de zero : verifie au passage
+      # que schema.ts et src/db/migrations n'ont pas diverge.
+      - name: Apply migrations to test database
+        run: pnpm exec drizzle-kit migrate
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+
+      - name: Check schema.ts matches migrations
+        run: |
+          pnpm exec drizzle-kit generate --name ci-drift-check
+          if [ -n "$(git status --porcelain src/db/migrations)" ]; then
+            echo "schema.ts a change sans migration : lancer 'pnpm db:generate' et commiter le resultat."
+            git status --porcelain src/db/migrations
+            exit 1
+          fi
+
+      - name: Integration tests
+        run: pnpm test:integration
 
       - name: Build
         run: pnpm build

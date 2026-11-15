@@ -45,6 +45,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DataEmpty,
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
   KpiCell,
   PAGE_SIZES,
   paginate,
@@ -383,8 +389,9 @@ export default function StockPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Activité"
         title="Stock"
-        description="Stock initial, entrees, sorties et stock actuel — alertes des que le seuil est atteint."
+        description="Stock initial, entrées, sorties et stock actuel — alertes dès que le seuil est atteint."
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild>
@@ -434,8 +441,8 @@ export default function StockPage() {
             </Button>
           </div>
 
-          <div className="border border-border bg-card">
-            <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+          <div className="border border-border/80 bg-card">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-3">
               <div className="relative min-w-0 flex-1 basis-48">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -447,143 +454,138 @@ export default function StockPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[52rem] border-collapse text-sm">
-                <thead className="border-b border-border bg-muted/80">
-                  <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                    <SortableTh
-                      label="Article"
-                      active={productSort.key === "name"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("name")}
-                    />
-                    <SortableTh
-                      label="Stock initial"
-                      align="right"
-                      active={productSort.key === "initial"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("initial")}
-                    />
-                    <SortableTh
-                      label="Entrees"
-                      align="right"
-                      active={productSort.key === "entries"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("entries")}
-                    />
-                    <SortableTh
-                      label="Sorties"
-                      align="right"
-                      active={productSort.key === "exits"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("exits")}
-                    />
-                    <SortableTh
-                      label="Stock actuel"
-                      align="right"
-                      active={productSort.key === "stock"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("stock")}
-                    />
-                    <SortableTh
-                      label="Statut"
-                      active={productSort.key === "status"}
-                      dir={productSort.dir}
-                      onClick={() => toggleProductSort("status")}
-                    />
-                    <th className="w-14 px-3 py-2.5 text-right font-semibold text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productPager.rows.map((p) => {
-                    const alert = p.currentStock <= p.stockMinThreshold;
-                    const bal = productBalances.get(p.id) ?? emptyBalance();
-                    return (
-                      <tr
-                        key={p.id}
-                        className={cn(
-                          "border-b border-border last:border-b-0 transition-colors hover:bg-muted/40",
-                          alert ? "border-l-2 border-l-destructive" : "border-l-2 border-l-success/50"
-                        )}
-                      >
-                        <td className="px-4 py-2.5">
-                          <p className="font-semibold leading-snug tracking-tight">{p.name}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {categoryName(p.categoryId)} · seuil {p.stockMinThreshold} {p.unitLabel}
-                            {p.stockMinThreshold !== 1 ? "(s)" : ""}
-                          </p>
-                        </td>
-                        <td className="font-figures px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {bal.initial}
-                        </td>
-                        <td className="font-figures px-4 py-2.5 text-right font-semibold tabular-nums text-success">
-                          {bal.entries > 0 ? `+${bal.entries}` : bal.entries}
-                        </td>
-                        <td className="font-figures px-4 py-2.5 text-right font-semibold tabular-nums text-destructive">
-                          {bal.exits > 0 ? `−${bal.exits}` : bal.exits}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <p
-                            className={cn(
-                              "font-figures text-base font-bold tabular-nums",
-                              alert ? "text-destructive" : "text-foreground"
-                            )}
-                          >
-                            {p.currentStock}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {p.unitLabel}
-                            {p.currentStock !== 1 ? "(s)" : ""}
-                          </p>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <StatusBadge tone={alert ? "bad" : "good"}>
-                            {alert ? "Alerte" : "OK"}
-                          </StatusBadge>
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
-                                <MoreHorizontal className="size-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/app/stock/mouvement?type=entry&productId=${p.id}`}>
-                                  Entree de stock
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/app/stock/mouvement?type=adjustment&productId=${p.id}`}>
-                                  Sortie de stock
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem asChild>
-                                <Link href="/app/articles">Modifier l&apos;article</Link>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {productPager.total === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                        {products.length === 0
-                          ? "Aucun article. Creez-en depuis la page Articles."
-                          : "Aucun article ne correspond aux filtres."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable minWidth="52rem" className="border-0">
+              <DataTableHead>
+                <tr>
+                  <SortableTh
+                    label="Article"
+                    active={productSort.key === "name"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("name")}
+                  />
+                  <SortableTh
+                    label="Stock initial"
+                    align="right"
+                    active={productSort.key === "initial"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("initial")}
+                  />
+                  <SortableTh
+                    label="Entrees"
+                    align="right"
+                    active={productSort.key === "entries"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("entries")}
+                  />
+                  <SortableTh
+                    label="Sorties"
+                    align="right"
+                    active={productSort.key === "exits"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("exits")}
+                  />
+                  <SortableTh
+                    label="Stock actuel"
+                    align="right"
+                    active={productSort.key === "stock"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("stock")}
+                  />
+                  <SortableTh
+                    label="Statut"
+                    active={productSort.key === "status"}
+                    dir={productSort.dir}
+                    onClick={() => toggleProductSort("status")}
+                  />
+                  <DataTh align="right" className="w-14">
+                    Actions
+                  </DataTh>
+                </tr>
+              </DataTableHead>
+              <tbody>
+                {productPager.rows.map((p) => {
+                  const alert = p.currentStock <= p.stockMinThreshold;
+                  const bal = productBalances.get(p.id) ?? emptyBalance();
+                  return (
+                    <DataTr
+                      key={p.id}
+                      className={cn(
+                        alert ? "border-l-2 border-l-destructive" : "border-l-2 border-l-success/50"
+                      )}
+                    >
+                      <DataTd>
+                        <p className="font-semibold leading-snug tracking-tight">{p.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {categoryName(p.categoryId)} · seuil {p.stockMinThreshold} {p.unitLabel}
+                          {p.stockMinThreshold !== 1 ? "(s)" : ""}
+                        </p>
+                      </DataTd>
+                      <DataTd align="right" figures muted>
+                        {bal.initial}
+                      </DataTd>
+                      <DataTd align="right" figures className="font-semibold text-success">
+                        {bal.entries > 0 ? `+${bal.entries}` : bal.entries}
+                      </DataTd>
+                      <DataTd align="right" figures className="font-semibold text-destructive">
+                        {bal.exits > 0 ? `−${bal.exits}` : bal.exits}
+                      </DataTd>
+                      <DataTd align="right">
+                        <p
+                          className={cn(
+                            "font-figures text-base font-bold",
+                            alert ? "text-destructive" : "text-foreground"
+                          )}
+                        >
+                          {p.currentStock}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {p.unitLabel}
+                          {p.currentStock !== 1 ? "(s)" : ""}
+                        </p>
+                      </DataTd>
+                      <DataTd>
+                        <StatusBadge tone={alert ? "bad" : "good"}>
+                          {alert ? "Alerte" : "OK"}
+                        </StatusBadge>
+                      </DataTd>
+                      <DataTd align="right" className="px-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <MoreHorizontal className="size-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/app/stock/mouvement?type=entry&productId=${p.id}`}>
+                                Entree de stock
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/app/stock/mouvement?type=adjustment&productId=${p.id}`}>
+                                Sortie de stock
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                              <Link href="/app/articles">Modifier l&apos;article</Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </DataTd>
+                    </DataTr>
+                  );
+                })}
+                {productPager.total === 0 ? (
+                  <DataEmpty colSpan={7}>
+                    {products.length === 0
+                      ? "Aucun article. Creez-en depuis la page Articles."
+                      : "Aucun article ne correspond aux filtres."}
+                  </DataEmpty>
+                ) : null}
+              </tbody>
+            </DataTable>
 
             <TablePagination
               from={productPager.from}
@@ -624,8 +626,8 @@ export default function StockPage() {
             />
           </div>
 
-          <div className="border border-border bg-card">
-            <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+          <div className="border border-border/80 bg-card">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-3">
               <div className="relative min-w-0 flex-1 basis-48">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -662,173 +664,165 @@ export default function StockPage() {
               </Select>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[48rem] border-collapse text-sm">
-                <thead className="border-b border-border bg-muted/80">
-                  <tr className="text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                    <SortableTh
-                      label="Date"
-                      active={movementSort.key === "date"}
-                      dir={movementSort.dir}
-                      onClick={() => toggleMovementSort("date")}
-                    />
-                    <SortableTh
-                      label="Type"
-                      active={movementSort.key === "type"}
-                      dir={movementSort.dir}
-                      onClick={() => toggleMovementSort("type")}
-                    />
-                    <SortableTh
-                      label="Article(s)"
-                      active={movementSort.key === "article"}
-                      dir={movementSort.dir}
-                      onClick={() => toggleMovementSort("article")}
-                    />
-                    <th className="px-4 py-2.5 font-semibold text-muted-foreground">Motif</th>
-                    <SortableTh
-                      label="Qte"
-                      align="right"
-                      active={movementSort.key === "qty"}
-                      dir={movementSort.dir}
-                      onClick={() => toggleMovementSort("qty")}
-                    />
-                    <th className="w-14 px-3 py-2.5 text-right font-semibold text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movementPager.rows.map((group) => {
-                    const isMulti = group.items.length > 1;
-                    const canReverse =
-                      !!group.batchId &&
-                      !group.reversed &&
-                      !group.isReversal &&
-                      (group.type === "entry" || group.type === "adjustment");
-                    const deltaSample = group.items[0]?.quantityDelta ?? 0;
-                    const isPositiveType = group.type === "entry" || group.type === "initial";
-                    const unitLabel =
-                      !isMulti
-                        ? products.find((p) => p.id === group.items[0]?.productId)?.unitLabel
-                        : null;
-                    const absQty = group.items.reduce((s, i) => s + Math.abs(i.quantityDelta), 0);
+            <DataTable minWidth="48rem" className="border-0">
+              <DataTableHead>
+                <tr>
+                  <SortableTh
+                    label="Date"
+                    active={movementSort.key === "date"}
+                    dir={movementSort.dir}
+                    onClick={() => toggleMovementSort("date")}
+                  />
+                  <SortableTh
+                    label="Type"
+                    active={movementSort.key === "type"}
+                    dir={movementSort.dir}
+                    onClick={() => toggleMovementSort("type")}
+                  />
+                  <SortableTh
+                    label="Article(s)"
+                    active={movementSort.key === "article"}
+                    dir={movementSort.dir}
+                    onClick={() => toggleMovementSort("article")}
+                  />
+                  <DataTh>Motif</DataTh>
+                  <SortableTh
+                    label="Qte"
+                    align="right"
+                    active={movementSort.key === "qty"}
+                    dir={movementSort.dir}
+                    onClick={() => toggleMovementSort("qty")}
+                  />
+                  <DataTh align="right" className="w-14">
+                    Actions
+                  </DataTh>
+                </tr>
+              </DataTableHead>
+              <tbody>
+                {movementPager.rows.map((group) => {
+                  const isMulti = group.items.length > 1;
+                  const canReverse =
+                    !!group.batchId &&
+                    !group.reversed &&
+                    !group.isReversal &&
+                    (group.type === "entry" || group.type === "adjustment");
+                  const deltaSample = group.items[0]?.quantityDelta ?? 0;
+                  const isPositiveType = group.type === "entry" || group.type === "initial";
+                  const unitLabel =
+                    !isMulti
+                      ? products.find((p) => p.id === group.items[0]?.productId)?.unitLabel
+                      : null;
+                  const absQty = group.items.reduce((s, i) => s + Math.abs(i.quantityDelta), 0);
 
-                    return (
-                      <tr
-                        key={group.key}
-                        onClick={() => setSelectedGroup(group)}
-                        className={cn(
-                          "cursor-pointer border-b border-border transition-colors hover:bg-muted/40",
-                          group.reversed && "opacity-60",
-                          isPositiveType
-                            ? "border-l-2 border-l-success/60"
-                            : "border-l-2 border-l-destructive/60"
+                  return (
+                    <DataTr
+                      key={group.key}
+                      onClick={() => setSelectedGroup(group)}
+                      className={cn(
+                        group.reversed && "opacity-60",
+                        isPositiveType
+                          ? "border-l-2 border-l-success/60"
+                          : "border-l-2 border-l-destructive/60"
+                      )}
+                    >
+                      <DataTd figures muted className="text-xs font-semibold">
+                        {formatMovementDate(group.createdAt)}
+                      </DataTd>
+                      <DataTd>
+                        <StatusBadge tone={isPositiveType ? "entry" : "exit"}>
+                          {MOVEMENT_TYPE_LABELS[group.type]}
+                        </StatusBadge>
+                        {group.reversed && (
+                          <span className="ml-1.5 text-[10px] text-muted-foreground">annule</span>
                         )}
-                      >
-                        <td className="font-figures px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                          {formatMovementDate(group.createdAt)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <StatusBadge tone={isPositiveType ? "entry" : "exit"}>
-                            {MOVEMENT_TYPE_LABELS[group.type]}
-                          </StatusBadge>
-                          {group.reversed && (
-                            <span className="ml-1.5 text-[10px] text-muted-foreground">annule</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium">
-                          {isMulti ? (
-                            <span>
-                              {group.items.length} articles
-                              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                (lot)
-                              </span>
+                      </DataTd>
+                      <DataTd className="font-medium">
+                        {isMulti ? (
+                          <span>
+                            {group.items.length} articles
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              (lot)
                             </span>
-                          ) : (
-                            group.items[0].productName
-                          )}
-                        </td>
-                        <td className="max-w-[10rem] truncate px-4 py-2.5 text-muted-foreground">
-                          {group.note ?? "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          {!isMulti ? (
-                            <>
-                              <span
-                                className={cn(
-                                  "font-figures text-sm font-bold",
-                                  deltaSample > 0 ? "text-success" : "text-destructive"
-                                )}
-                              >
-                                {deltaSample > 0 ? "+" : ""}
-                                {deltaSample}
-                              </span>
-                              {unitLabel && (
-                                <p className="text-[11px] text-muted-foreground">
-                                  {unitLabel}
-                                  {Math.abs(deltaSample) !== 1 ? "(s)" : ""}
-                                </p>
+                          </span>
+                        ) : (
+                          group.items[0].productName
+                        )}
+                      </DataTd>
+                      <DataTd muted className="max-w-[10rem] truncate">
+                        {group.note ?? "—"}
+                      </DataTd>
+                      <DataTd align="right">
+                        {!isMulti ? (
+                          <>
+                            <span
+                              className={cn(
+                                "font-figures text-sm font-bold",
+                                deltaSample > 0 ? "text-success" : "text-destructive"
                               )}
-                            </>
-                          ) : (
-                            <span className="font-figures text-xs font-semibold text-muted-foreground">
-                              {absQty}
+                            >
+                              {deltaSample > 0 ? "+" : ""}
+                              {deltaSample}
                             </span>
-                          )}
-                        </td>
-                        <td
-                          className="px-3 py-2.5 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
-                                <MoreHorizontal className="size-4" />
-                                <span className="sr-only">Actions</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setSelectedGroup(group)}>
-                                Consulter
-                              </DropdownMenuItem>
-                              {group.reversed ? (
-                                <DropdownMenuItem disabled>Deja annule</DropdownMenuItem>
-                              ) : canReverse ? (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onClick={() => setReverseTarget(group)}
-                                  >
-                                    Annuler le mouvement
-                                  </DropdownMenuItem>
-                                </>
-                              ) : null}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!loadingMovements && movementPager.total === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                        {movements.length === 0
-                          ? "Aucun mouvement sur cette periode."
-                          : "Aucun mouvement ne correspond aux filtres."}
-                      </td>
-                    </tr>
-                  )}
-                  {loadingMovements && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                        Chargement…
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            {unitLabel && (
+                              <p className="text-[11px] text-muted-foreground">
+                                {unitLabel}
+                                {Math.abs(deltaSample) !== 1 ? "(s)" : ""}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <span className="font-figures text-xs font-semibold text-muted-foreground">
+                            {absQty}
+                          </span>
+                        )}
+                      </DataTd>
+                      <DataTd
+                        align="right"
+                        className="px-3"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <MoreHorizontal className="size-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSelectedGroup(group)}>
+                              Consulter
+                            </DropdownMenuItem>
+                            {group.reversed ? (
+                              <DropdownMenuItem disabled>Deja annule</DropdownMenuItem>
+                            ) : canReverse ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setReverseTarget(group)}
+                                >
+                                  Annuler le mouvement
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </DataTd>
+                    </DataTr>
+                  );
+                })}
+                {!loadingMovements && movementPager.total === 0 ? (
+                  <DataEmpty colSpan={6}>
+                    {movements.length === 0
+                      ? "Aucun mouvement sur cette periode."
+                      : "Aucun mouvement ne correspond aux filtres."}
+                  </DataEmpty>
+                ) : null}
+                {loadingMovements ? (
+                  <DataEmpty colSpan={6}>Chargement…</DataEmpty>
+                ) : null}
+              </tbody>
+            </DataTable>
 
             <TablePagination
               from={movementPager.from}
@@ -916,43 +910,49 @@ export default function StockPage() {
                     </SheetHeader>
 
                     <div className="flex-1 overflow-y-auto px-4 py-2">
-                      <table className="w-full border-collapse text-sm">
-                        <thead>
-                          <tr className="border-b border-border text-left text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                            <th className="py-2 font-semibold">Article</th>
-                            <th className="py-2 text-right font-semibold">Quantite</th>
-                            <th className="py-2 text-right font-semibold">Delta</th>
+                      <DataTable minWidth="0" stickyHeader={false} className="border-0">
+                        <DataTableHead>
+                          <tr>
+                            <DataTh className="px-0">Article</DataTh>
+                            <DataTh align="right" className="px-0">
+                              Quantite
+                            </DataTh>
+                            <DataTh align="right" className="px-0">
+                              Delta
+                            </DataTh>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-dashed divide-border">
+                        </DataTableHead>
+                        <tbody>
                           {selectedGroup.items.map((item) => {
                             const unit =
                               products.find((p) => p.id === item.productId)?.unitLabel ?? "piece";
                             const abs = Math.abs(item.quantityDelta);
                             return (
-                              <tr key={item.id}>
-                                <td className="py-2.5 pr-2 font-medium">{item.productName}</td>
-                                <td className="py-2.5 text-right text-muted-foreground">
+                              <DataTr key={item.id}>
+                                <DataTd className="px-0 font-medium">{item.productName}</DataTd>
+                                <DataTd align="right" muted className="px-0">
                                   <span className="font-figures">{abs}</span>
                                   <span className="ml-1 text-[11px]">
                                     {unit}
                                     {abs !== 1 ? "(s)" : ""}
                                   </span>
-                                </td>
-                                <td
+                                </DataTd>
+                                <DataTd
+                                  align="right"
+                                  figures
                                   className={cn(
-                                    "font-figures py-2.5 text-right font-semibold",
+                                    "px-0 font-semibold",
                                     item.quantityDelta > 0 ? "text-success" : "text-destructive"
                                   )}
                                 >
                                   {item.quantityDelta > 0 ? "+" : ""}
                                   {item.quantityDelta}
-                                </td>
-                              </tr>
+                                </DataTd>
+                              </DataTr>
                             );
                           })}
                         </tbody>
-                      </table>
+                      </DataTable>
                     </div>
 
                     <div className="mt-auto space-y-3 border-t border-border px-4 py-4">

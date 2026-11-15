@@ -141,12 +141,14 @@ type ApplyMovementInput = {
 // currentStock) dans une transaction deja ouverte — reutilise par
 // createStockMovement (sa propre transaction, un seul mouvement) et
 // reverseStockMovementBatch (une transaction partagee par tout un lot,
-// pour que l'annulation soit tout-ou-rien).
+// pour que l'annulation soit tout-ou-rien). FOR UPDATE : sans verrou, deux
+// sorties concurrentes passent toutes deux le controle "stock >= 0".
 async function applyStockMovement(tx: Tx, input: ApplyMovementInput) {
   const [product] = await tx
     .select()
     .from(products)
-    .where(and(eq(products.id, input.productId), eq(products.organizationId, input.organizationId)));
+    .where(and(eq(products.id, input.productId), eq(products.organizationId, input.organizationId)))
+    .for("update");
 
   if (!product) {
     throw new HttpError(404, "Article introuvable");

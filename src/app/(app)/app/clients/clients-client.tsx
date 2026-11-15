@@ -31,7 +31,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/page-header";
-import { KpiCell, StatusBadge } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableHead,
+  DataTd,
+  DataTh,
+  DataTr,
+  KpiCell,
+  StatusBadge,
+} from "@/components/data-table";
 
 const REPAY_METHODS = [
   "especes",
@@ -196,7 +204,8 @@ export default function ClientsPageClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Clients credit"
+        eyebrow="Activité"
+        title="Clients crédit"
         description="Suivez qui doit de l'argent et enregistrez les remboursements."
         action={
           <Button onClick={() => setCreateOpen(true)}>
@@ -233,48 +242,44 @@ export default function ClientsPageClient() {
           </p>
         </section>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-[10px] tracking-wider text-muted-foreground uppercase">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Client</th>
-                <th className="px-3 py-2 font-semibold">Telephone</th>
-                <th className="px-3 py-2 font-semibold text-right">Solde</th>
-                <th className="px-3 py-2 font-semibold">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => {
-                const bal = c.balance ?? 0;
-                return (
-                  <tr
-                    key={c.id}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30"
-                    onClick={() => openCustomer(c.id)}
+        <DataTable minWidth="30rem">
+          <DataTableHead>
+            <tr>
+              <DataTh>Client</DataTh>
+              <DataTh>Téléphone</DataTh>
+              <DataTh align="right">Solde</DataTh>
+              <DataTh>Statut</DataTh>
+            </tr>
+          </DataTableHead>
+          <tbody>
+            {filtered.map((c) => {
+              const bal = c.balance ?? 0;
+              return (
+                <DataTr key={c.id} onClick={() => openCustomer(c.id)}>
+                  <DataTd className="font-semibold tracking-tight">{c.name}</DataTd>
+                  <DataTd muted>{c.phone || "—"}</DataTd>
+                  <DataTd
+                    align="right"
+                    figures
+                    className={cn(
+                      "font-semibold",
+                      bal > 0 && "text-amber-700 dark:text-amber-400"
+                    )}
                   >
-                    <td className="px-3 py-2.5 font-medium">{c.name}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{c.phone || "—"}</td>
-                    <td
-                      className={cn(
-                        "px-3 py-2.5 text-right tabular-nums font-semibold",
-                        bal > 0 && "text-amber-700 dark:text-amber-400"
-                      )}
-                    >
-                      {formatFcfa(bal)}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {bal > 0 ? (
-                        <StatusBadge tone="bad">Dette</StatusBadge>
-                      ) : (
-                        <StatusBadge tone="good">A jour</StatusBadge>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    {formatFcfa(bal)}
+                  </DataTd>
+                  <DataTd>
+                    {bal > 0 ? (
+                      <StatusBadge tone="bad">Dette</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="good">A jour</StatusBadge>
+                    )}
+                  </DataTd>
+                </DataTr>
+              );
+            })}
+          </tbody>
+        </DataTable>
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

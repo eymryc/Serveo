@@ -11,7 +11,11 @@ export default async function Page() {
   if (userId && !orgId) redirect("/onboarding");
 
   return (
-    <AuthShell title="Creez votre compte" description="Quelques secondes avant de gerer votre bar" active="sign-up">
+    <AuthShell
+      title="Créez votre compte"
+      description="Le compte gérant d’abord. Votre bar se configure juste après."
+      active="sign-up"
+    >
       <CustomSignUpForm />
     </AuthShell>
   );

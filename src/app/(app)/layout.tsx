@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { organizations } from "@/db/schema";
 import { AppShell, type NavGroup, type NavItem } from "@/components/app-shell";
+import { listUserOrganizations } from "@/lib/memberships";
 
 // Regroupees par usage : Activite (quotidien, tout le monde), Gestion
 // (catalogue/depenses/analyses, gerant), Administration (equipe/reglages,
@@ -33,6 +34,7 @@ const NAV_GROUPS: { label: string; items: (NavItem & { adminOnly: boolean })[] }
     label: "Administration",
     items: [
       { href: "/app/equipe", label: "Equipe", icon: "equipe", adminOnly: true },
+      { href: "/app/journal", label: "Journal", icon: "journal", adminOnly: true },
       { href: "/app/parametres", label: "Parametres", icon: "parametres", adminOnly: true },
     ],
   },
@@ -56,7 +58,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const db = getDb();
-  const [organization] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, orgId));
+  const [[organization], userOrganizations] = await Promise.all([
+    db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, orgId)),
+    listUserOrganizations(userId),
+  ]);
 
   const isAdmin = orgRole === "org:admin";
   const visibleGroups: NavGroup[] = NAV_GROUPS.map((group) => ({
@@ -71,6 +76,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isPlatformAdmin={isPlatformAdmin}
       userName={userName ?? "Compte"}
       orgName={organization?.name ?? "Mon bar"}
+      activeOrganizationId={orgId}
+      organizations={userOrganizations
+        .filter((o) => o.isActive === 1)
+        .map((o) => ({ id: o.organizationId, name: o.name, role: o.role }))}
     >
       {children}
     </AppShell>
