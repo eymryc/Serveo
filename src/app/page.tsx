@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AppDownloadBanner } from "@/components/app-download-banner";
 import { HeroSlogan } from "@/components/hero-slogan";
 import { LandingFeatureCards } from "@/components/landing-feature-cards";
 import { LandingHow } from "@/components/landing-how";
@@ -79,14 +78,6 @@ export default async function LandingPage() {
                     <Link href="/sign-in">J&apos;ai déjà un compte</Link>
                   </Button>
                 </div>
-
-                {androidApkUrl ? (
-                  <AppDownloadBanner
-                    href={androidApkUrl}
-                    tone="on-photo"
-                    className="mt-9 sm:mt-10"
-                  />
-                ) : null}
               </div>
             </div>
           </div>
