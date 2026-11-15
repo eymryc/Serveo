@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, Menu, Users } from "lucide-react";
+import { Bug, Building2, LayoutDashboard, Menu, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin", label: "Vue d'ensemble", icon: LayoutDashboard },
   { href: "/admin/bars", label: "Bars", icon: Building2 },
   { href: "/admin/users", label: "Utilisateurs", icon: Users },
+  { href: "/admin/erreurs", label: "Erreurs", icon: Bug },
 ] as const;
 
 function NavLinks({

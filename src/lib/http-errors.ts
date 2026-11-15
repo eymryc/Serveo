@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { scheduleApiErrorReport } from "@/lib/error-log";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -19,5 +20,6 @@ export function errorResponse(error: unknown) {
     );
   }
   console.error(error);
+  scheduleApiErrorReport(error);
   return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
 }

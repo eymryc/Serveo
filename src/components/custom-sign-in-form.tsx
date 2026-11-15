@@ -27,7 +27,11 @@ export function CustomSignInForm() {
     const result = await signIn("credentials", { phone, password, redirect: false });
 
     if (result?.error) {
-      setError("Numero de telephone ou mot de passe incorrect");
+      setError(
+        result.code === "rate_limited"
+          ? "Trop de tentatives. Reessayez dans quelques minutes."
+          : "Numero de telephone ou mot de passe incorrect"
+      );
       setLoading(false);
       return;
     }

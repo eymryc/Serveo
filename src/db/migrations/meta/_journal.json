@@ -15,6 +15,13 @@
       "when": 1794744660367,
       "tag": "0001_memberships_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794745274120,
+      "tag": "0002_rate_limits_error_logs",
+      "breakpoints": true
     }
   ]
 }

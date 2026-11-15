@@ -1,5 +1,5 @@
 import "server-only";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -7,6 +7,14 @@ import { getDb } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { verifyPassword } from "@/lib/password";
 import { verifyMobileToken } from "@/lib/mobile-token";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+
+const LOGIN_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 10;
+
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 async function loadUserById(userId: string) {
   const db = getDb();
@@ -61,10 +69,17 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
         phone: { label: "Numero de telephone", type: "tel" },
         password: { label: "Mot de passe", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const phone = String(credentials?.phone ?? "").trim();
         const password = String(credentials?.password ?? "");
         if (!phone || !password) return null;
+
+        // Memes compteurs que /api/v1/auth/login : web et mobile partagent la limite.
+        const [byIp, byPhone] = await Promise.all([
+          checkRateLimit(`login:ip:${getClientIp(request)}`, LOGIN_RATE_LIMIT_MAX_ATTEMPTS, LOGIN_RATE_LIMIT_WINDOW_MS),
+          checkRateLimit(`login:phone:${phone}`, LOGIN_RATE_LIMIT_MAX_ATTEMPTS, LOGIN_RATE_LIMIT_WINDOW_MS),
+        ]);
+        if (byIp.limited || byPhone.limited) throw new RateLimitedSignin();
 
         const db = getDb();
         const [user] = await db.select().from(users).where(eq(users.phone, phone));

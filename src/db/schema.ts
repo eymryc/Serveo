@@ -112,6 +112,33 @@ export const auditLogs = pgTable("audit_logs", {
   index("audit_logs_org_created_idx").on(t.organizationId, t.createdAt),
 ]);
 
+// Compteurs de rate limiting partages entre toutes les instances Vercel.
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+}, (t) => [
+  index("rate_limits_reset_at_idx").on(t.resetAt),
+]);
+
+// Erreurs serveur inattendues (500), consultables dans /admin/erreurs.
+export const errorLogs = pgTable("error_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Regroupe les occurrences d'une meme erreur (message + 1re ligne de pile).
+  fingerprint: text("fingerprint").notNull(),
+  source: text("source").notNull(),
+  method: text("method"),
+  path: text("path"),
+  message: text("message").notNull(),
+  stack: text("stack"),
+  organizationId: uuid("organization_id"),
+  userId: uuid("user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("error_logs_created_idx").on(t.createdAt),
+  index("error_logs_fingerprint_created_idx").on(t.fingerprint, t.createdAt),
+]);
+
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "trialing",
   "active",

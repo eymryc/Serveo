@@ -273,3 +273,10 @@ export const adminUpdateUserSchema = z.object({
   phone: phoneSchema.optional(),
   organizationId: z.string().uuid().nullable().optional(),
 });
+
+export const clientErrorSchema = z.object({
+  source: z.enum(["web", "mobile"]),
+  message: z.string().min(1).max(2000),
+  stack: z.string().max(8000).optional(),
+  path: z.string().max(500).optional(),
+});

@@ -57,6 +57,10 @@ TEST_DATABASE_URL=postgres://postgres@localhost:5432/serveo_test pnpm test:integ
 
 `recordAudit()` (`src/lib/audit.ts`) trace les actions sensibles dans `audit_logs` (ajout seul) : annulations de vente, annulations de mouvements de stock, clôtures d'inventaire et de caisse, équipe, paramètres, actions du back-office, impersonation (avec `impersonator_user_id`). Ajouter un appel pour toute nouvelle action sensible. La page gérant `/app/journal` les affiche ; une action faite en impersonation y apparaît comme « Support Serveo ».
 
+## Erreurs : suivi sans service payant
+
+Toute réponse 500 de `errorResponse()` est enregistrée dans `error_logs` après l'envoi de la réponse (`after()`, `src/lib/error-log.ts`) ; les erreurs de rendu passent par `onRequestError` (`src/instrumentation.ts`), celles du navigateur par `error.tsx` / `global-error.tsx` → `POST /api/v1/client-errors` (publique, 20/10 min par IP). Regroupement par empreinte (message normalisé + 1re ligne de pile), consultation dans `/admin/erreurs`, purge après 30 jours. Alerte Telegram optionnelle (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`). `error-log.ts` importe `auth` dynamiquement : `http-errors` est importé partout, y compris par les tests d'intégration.
+
 ## App mobile : version minimale
 
 `GET /api/v1/app-config` (public) renvoie `MIN_MOBILE_APP_VERSION` et `NEXT_PUBLIC_ANDROID_APK_URL`. Une app mobile plus ancienne affiche un écran bloquant « Mettre à jour ». Monter `MIN_MOBILE_APP_VERSION` seulement après avoir distribué l'APK correspondant, et seulement si l'API a cassé la compatibilité.
@@ -73,7 +77,7 @@ TEST_DATABASE_URL=postgres://postgres@localhost:5432/serveo_test pnpm test:integ
 - ✅ `pnpm test` — 47/47 tests passent.
 - ✅ `pnpm build` — OK sans variables d'environnement (toutes les routes sont dynamiques).
 - ✅ `pnpm lint` — **0 erreur** (16 erreurs `react-hooks/set-state-in-effect` corrigées dans cette session : chaque cas était un pattern volontaire — fetch au montage/changement de période, reset de pagination sur filtre, lecture d'API navigateur post-hydratation — documenté par un `eslint-disable-next-line` justifié plutôt qu'une réécriture risquée sous contrainte de temps). Il reste 9 warnings `react-hooks/exhaustive-deps` pré-existants, non bloquants.
-- ✅ Rate limiting ajouté sur `/api/v1/auth/login` (10 tentatives/5min, par IP et par téléphone) et `/auth/register` (5/heure par IP) — voir `src/lib/rate-limit.ts`. **Limite connue** : store en mémoire par instance, pas distribué — suffisant en stopgap, mais passer à un store partagé (Upstash Redis) si une garantie stricte cross-instance est nécessaire en prod à forte échelle.
+- ✅ Rate limiting sur `/api/v1/auth/login`, la connexion web NextAuth (mêmes compteurs : 10 tentatives/5min, par IP et par téléphone) et `/auth/register` (5/heure par IP) — `src/lib/rate-limit.ts`, compteurs dans la table Postgres `rate_limits` (partagés entre instances Vercel, fail-open si la base est injoignable).
 - ⚠️ Toujours aucun monitoring d'erreurs (Sentry ou équivalent) — les erreurs 500 ne sont que `console.error`-ées (`src/lib/http-errors.ts`), invisibles en prod sauf logs Vercel. Nécessite un choix d'outil/compte externe, pas fait dans cette session.
 - ✅ `pnpm-workspace.yaml` : résidu `@clerk/shared` supprimé (Clerk totalement absent du lockfile, migration NextAuth terminée).
 - ✅ Fichier `Untitled` (résidu, 14 octets) supprimé.
