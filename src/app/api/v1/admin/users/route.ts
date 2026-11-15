@@ -6,6 +6,8 @@ import { HttpError } from "@/lib/http-errors";
 import { hashPassword } from "@/lib/password";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
 import { adminCreateUserSchema } from "@/lib/validation";
+import { addMembership } from "@/lib/memberships";
+import { recordAudit } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -63,29 +65,45 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await hashPassword(body.password);
-    const [created] = await db
-      .insert(users)
-      .values({
-        firstName: body.firstName.trim(),
-        lastName: body.lastName.trim(),
-        phone,
-        passwordHash,
-        organizationId,
-        role: organizationId ? body.role : "member",
-        isPlatformAdmin: body.isPlatformAdmin ?? 0,
-        isActive: body.isActive ?? 1,
-      })
-      .returning({
-        id: users.id,
-        phone: users.phone,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        role: users.role,
-        organizationId: users.organizationId,
-        isActive: users.isActive,
-        isPlatformAdmin: users.isPlatformAdmin,
-        createdAt: users.createdAt,
-      });
+    const created = await db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(users)
+        .values({
+          firstName: body.firstName.trim(),
+          lastName: body.lastName.trim(),
+          phone,
+          passwordHash,
+          isPlatformAdmin: body.isPlatformAdmin ?? 0,
+          isActive: body.isActive ?? 1,
+        })
+        .returning({ id: users.id });
+      if (organizationId) {
+        await addMembership(tx, { userId: inserted.id, organizationId, role: body.role, makeActive: true });
+      }
+      const [row] = await tx
+        .select({
+          id: users.id,
+          phone: users.phone,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          organizationId: users.organizationId,
+          isActive: users.isActive,
+          isPlatformAdmin: users.isPlatformAdmin,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .where(eq(users.id, inserted.id));
+      return row;
+    });
+
+    await recordAudit({
+      organizationId: created.organizationId,
+      action: "admin.user_create",
+      targetType: "user",
+      targetId: created.id,
+      metadata: { role: created.role, isPlatformAdmin: created.isPlatformAdmin },
+    });
 
     let organizationName: string | null = null;
     if (created.organizationId) {

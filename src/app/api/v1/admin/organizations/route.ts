@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { desc, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { organizations, products, sales, users } from "@/db/schema";
+import { memberships, organizations, products, sales } from "@/db/schema";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
 
 export async function GET() {
@@ -17,7 +17,7 @@ export async function GET() {
         country: organizations.country,
         isActive: organizations.isActive,
         createdAt: organizations.createdAt,
-        membersCount: sql<number>`(select count(*)::int from ${users} where ${users.organizationId} = ${organizations.id})`,
+        membersCount: sql<number>`(select count(*)::int from ${memberships} where ${memberships.organizationId} = ${organizations.id})`,
         productsCount: sql<number>`(select count(*)::int from ${products} where ${products.organizationId} = ${organizations.id})`,
         salesCount: sql<number>`(select count(*)::int from ${sales} where ${sales.organizationId} = ${organizations.id})`,
       })

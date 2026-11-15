@@ -28,6 +28,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -60,6 +68,8 @@ export function EquipeClient() {
   const [creating, setCreating] = useState(false);
 
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   function fetchMembers() {
@@ -105,6 +115,24 @@ export function EquipeClient() {
       });
       await fetchMembers();
       toast.success("Role mis a jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleResetPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setBusyId(resetTarget.id);
+    try {
+      await apiFetch(`/api/v1/team/${resetTarget.id}/password`, {
+        method: "POST",
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      toast.success(`Mot de passe redefini — communiquez-le a ${resetTarget.name} : ${resetPassword}`);
+      setResetTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -270,6 +298,14 @@ export function EquipeClient() {
                                 Passer barman
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setResetPassword("");
+                                setResetTarget({ id: m.id, name: `${m.firstName} ${m.lastName}` });
+                              }}
+                            >
+                              Redefinir le mot de passe
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -295,6 +331,37 @@ export function EquipeClient() {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Nouveau mot de passe</DialogTitle>
+              <DialogDescription>
+                Pour {resetTarget?.name}. Communiquez-le lui : il pourra se connecter immediatement avec.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-password">Mot de passe temporaire</Label>
+              <PasswordInput
+                id="reset-password"
+                required
+                minLength={8}
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setResetTarget(null)}>
+                Retour
+              </Button>
+              <Button type="submit" disabled={!!busyId}>
+                Enregistrer
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent>

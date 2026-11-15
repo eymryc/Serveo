@@ -14,7 +14,7 @@ API + dashboard web de **Serveo**, une app de gestion de bar/buvette (Côte d'Iv
 
 ## Architecture : multi-tenant strict
 
-Un tenant = une `organization` (un bar). Un `user` appartient à **exactement une** organisation (`organizationId` nullable jusqu'à onboarding). **Toute route API doit passer par les gardes de `src/lib/tenant.ts`** avant de toucher la DB :
+Un tenant = une `organization` (un bar). Un compte peut avoir accès à **plusieurs bars** via la table `memberships` (user, bar, rôle), qui est la source de vérité. `users.organizationId` / `users.role` désignent seulement le **bar actif** et le rôle dans ce bar ; ils ne s'écrivent que via `src/lib/memberships.ts`. Le bar actif est porté par le compte, pas par la session : changer de bar sur le web le change aussi sur le mobile, un choix assumé. Le reste du code (`auth()`, `requireTenant()`) lit le bar actif comme avant. **Toute route API doit passer par les gardes de `src/lib/tenant.ts`** avant de toucher la DB :
 
 - `requireUser()` — authentifié, pas encore forcément rattaché à un bar (ex. `POST /api/v1/organization`).
 - `requireTenant()` — authentifié **et** rattaché à une organisation active ; renvoie `organizationId` à utiliser pour scoper la requête.
@@ -52,6 +52,14 @@ pnpm test              # unitaire, mocké, rapide
 TEST_DATABASE_URL=postgres://postgres@localhost:5432/serveo_test pnpm test:integration
 ```
 `vitest.config.mts` exclut `*.integration.test.ts`. `vitest.integration.config.mts` redirige `@/db` vers `src/test/integration-db.ts` (driver node-postgres) et **refuse toute URL non locale**. Préparer la base de test : `DATABASE_URL=<url locale> pnpm exec drizzle-kit migrate`. La CI fait tourner les deux suites, avec un service Postgres 16.
+
+## Journal d'audit
+
+`recordAudit()` (`src/lib/audit.ts`) trace les actions sensibles dans `audit_logs` (ajout seul) : annulations de vente, annulations de mouvements de stock, clôtures d'inventaire et de caisse, équipe, paramètres, actions du back-office, impersonation (avec `impersonator_user_id`). Ajouter un appel pour toute nouvelle action sensible. La page gérant `/app/journal` les affiche ; une action faite en impersonation y apparaît comme « Support Serveo ».
+
+## App mobile : version minimale
+
+`GET /api/v1/app-config` (public) renvoie `MIN_MOBILE_APP_VERSION` et `NEXT_PUBLIC_ANDROID_APK_URL`. Une app mobile plus ancienne affiche un écran bloquant « Mettre à jour ». Monter `MIN_MOBILE_APP_VERSION` seulement après avoir distribué l'APK correspondant, et seulement si l'API a cassé la compatibilité.
 
 ## Ventes : invariants à préserver
 

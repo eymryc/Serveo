@@ -9,17 +9,17 @@ import {
   DEFAULT_UNIT_LABELS,
 } from "@/lib/categories";
 import { HttpError } from "@/lib/http-errors";
+import { addMembership } from "@/lib/memberships";
 
 // Cree le bar (organisation) du compte courant, avec des categories de
 // depart (modifiables ensuite dans Parametres) pour eviter un ecran vide au
-// premier lancement. Le createur devient gerant (role admin) de ce bar —
-// un compte ne peut creer/rejoindre qu'un seul bar (pas de multi-org).
+// premier lancement. Le createur devient gerant (role admin) de ce bar, qui
+// devient son bar actif — un compte peut gerer plusieurs bars (memberships).
 export async function createOrganizationForUser(userId: string, name: string) {
   const db = getDb();
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new HttpError(401, "Compte introuvable");
-  if (user.organizationId) throw new HttpError(409, "Ce compte est deja rattache a un bar");
 
   return db.transaction(async (tx) => {
     const [org] = await tx.insert(organizations).values({ name }).returning();
@@ -37,7 +37,7 @@ export async function createOrganizationForUser(userId: string, name: string) {
       DEFAULT_PACKAGE_LABELS.map((name) => ({ organizationId: org.id, name }))
     );
 
-    await tx.update(users).set({ organizationId: org.id, role: "admin" }).where(eq(users.id, userId));
+    await addMembership(tx, { userId, organizationId: org.id, role: "admin", makeActive: true });
 
     return org;
   });

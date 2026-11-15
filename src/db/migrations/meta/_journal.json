@@ -8,6 +8,13 @@
       "when": 1794744178050,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794744660367,
+      "tag": "0001_memberships_audit",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
   foreignKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const paymentMethodValues = [
@@ -71,6 +72,44 @@ export const users = pgTable("users", {
   index("users_org_idx").on(t.organizationId),
   foreignKey({ name: "users_organization_id_fkey", columns: [t.organizationId], foreignColumns: [organizations.id] })
     .onDelete("set null"),
+]);
+
+// Rattachement utilisateur ↔ bar : source de verite des bars auxquels un
+// compte a acces (un patron peut gerer plusieurs etablissements, un barman
+// travailler dans deux bars). users.organizationId / users.role ne sont que
+// le bar ACTIF et le role dans ce bar — toujours ecrits via
+// src/lib/memberships.ts, qui garantit qu'ils correspondent a une ligne ici.
+export const memberships = pgTable("memberships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  role: userRoleEnum("role").notNull().default("member"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("memberships_user_org_key").on(t.userId, t.organizationId),
+  index("memberships_org_idx").on(t.organizationId),
+]);
+
+// Journal d'audit des actions sensibles (annulations, droits, impersonation,
+// mots de passe...) — en ajout seul, jamais modifie ni supprime par l'app.
+// organizationId null = action plateforme hors bar.
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+  actorUserId: uuid("actor_user_id"),
+  // Super-admin reellement aux commandes pendant une impersonation.
+  impersonatorUserId: uuid("impersonator_user_id"),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("audit_logs_org_created_idx").on(t.organizationId, t.createdAt),
 ]);
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [

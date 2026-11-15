@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenant, tenantErrorResponse } from "@/lib/tenant";
 import { closeCashSession } from "@/lib/cash-sessions";
+import { recordAudit } from "@/lib/audit";
 import { closeCashSessionSchema } from "@/lib/validation";
 
 export async function POST(
@@ -17,6 +18,14 @@ export async function POST(
       userId,
       sessionId: id,
       ...body,
+    });
+
+    await recordAudit({
+      organizationId,
+      action: "cash_session.close",
+      targetType: "cash_session",
+      targetId: id,
+      metadata: { counted: body, note: body.note ?? null },
     });
 
     return NextResponse.json(result);

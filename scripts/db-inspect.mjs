@@ -33,6 +33,14 @@ try {
     where p.current_stock <> coalesce((select sum(quantity_delta) from stock_movements m where m.product_id = p.id), 0)`);
   console.log("Produits dont current_stock != somme des mouvements:", drift.n);
 
+  const [hasMemberships] = await q(`select to_regclass('public.memberships') as t`);
+  if (hasMemberships.t) {
+    const [orphans] = await q(`select count(*)::int as n from users u
+      where u.organization_id is not null and not exists (
+        select 1 from memberships m where m.user_id = u.id and m.organization_id = u.organization_id)`);
+    console.log("Comptes dont le bar actif n'a pas de membership (doit etre 0):", orphans.n);
+  }
+
   const [partial] = await q(`select count(*)::int as n from (
     select batch_id from sales where batch_id is not null group by batch_id, created_by_user_id
     having max(created_at) - min(created_at) > interval '30 seconds') x`);

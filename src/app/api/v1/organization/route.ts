@@ -5,6 +5,7 @@ import { organizations } from "@/db/schema";
 import { requireTenant, requireUser, tenantErrorResponse } from "@/lib/tenant";
 import { createOrganizationForUser } from "@/lib/organization";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/lib/validation";
+import { recordAudit } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -23,14 +24,21 @@ export async function GET() {
   }
 }
 
-// Appelee par le flux d'onboarding pour creer le bar du compte courant
-// (un compte n'a pas encore d'organisation active a ce stade, donc on
-// n'utilise que requireUser() ici, pas requireTenant()).
+// Cree un bar pour le compte courant (premier bar a l'onboarding, ou bar
+// supplementaire) — requireUser() et non requireTenant() : le compte peut
+// ne pas encore avoir de bar actif.
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await requireUser();
     const body = createOrganizationSchema.parse(await req.json());
     const organization = await createOrganizationForUser(userId, body.name);
+    await recordAudit({
+      organizationId: organization.id,
+      action: "organization.create",
+      targetType: "organization",
+      targetId: organization.id,
+      metadata: { name: organization.name },
+    });
     return NextResponse.json({ organization }, { status: 201 });
   } catch (error) {
     return tenantErrorResponse(error);
@@ -59,6 +67,14 @@ export async function PATCH(req: NextRequest) {
       })
       .where(eq(organizations.id, organizationId))
       .returning();
+
+    await recordAudit({
+      organizationId,
+      action: "organization.update",
+      targetType: "organization",
+      targetId: organizationId,
+      metadata: { fields: Object.keys(body) },
+    });
 
     return NextResponse.json({ organization: updated });
   } catch (error) {

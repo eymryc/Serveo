@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { organizations, products, sales, users } from "@/db/schema";
+import { memberships, organizations, products, sales, users } from "@/db/schema";
+import { recordAudit } from "@/lib/audit";
 import { HttpError } from "@/lib/http-errors";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
 import { adminUpdateOrganizationSchema } from "@/lib/validation";
@@ -24,13 +25,14 @@ export async function GET(
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
-        role: users.role,
+        role: memberships.role,
         isActive: users.isActive,
         isPlatformAdmin: users.isPlatformAdmin,
         createdAt: users.createdAt,
       })
-      .from(users)
-      .where(eq(users.organizationId, id))
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(eq(memberships.organizationId, id))
       .orderBy(desc(users.createdAt));
 
     const [[productsCount], [salesCount], [revenue]] = await Promise.all([
@@ -87,6 +89,14 @@ export async function PATCH(
       .returning();
 
     if (!updated) throw new HttpError(404, "Bar introuvable");
+
+    await recordAudit({
+      organizationId: id,
+      action: "admin.organization_update",
+      targetType: "organization",
+      targetId: id,
+      metadata: body,
+    });
 
     return NextResponse.json({
       organization: { ...updated, createdAt: updated.createdAt.toISOString() },

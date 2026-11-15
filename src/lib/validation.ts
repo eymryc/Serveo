@@ -238,6 +238,14 @@ export const updateTeamMemberSchema = z.object({
   role: z.enum(teamRoleValues),
 });
 
+export const resetTeamMemberPasswordSchema = z.object({
+  password: z.string().min(8).max(200),
+});
+
+export const switchOrganizationSchema = z.object({
+  organizationId: z.string().uuid(),
+});
+
 export const adminUpdateOrganizationSchema = z.object({
   isActive: z.coerce.number().int().min(0).max(1).optional(),
   name: z.string().min(1).max(200).optional(),

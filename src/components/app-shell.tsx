@@ -11,6 +11,7 @@ import {
   Menu,
   Package,
   Receipt,
+  ScrollText,
   ShoppingCart,
   Tags,
   Truck,
@@ -25,6 +26,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LogoMark } from "@/components/logo-mark";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { OrgSwitcher, type OrgOption } from "@/components/org-switcher";
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -38,6 +40,7 @@ const ICONS = {
   charges: Receipt,
   rapports: BarChart3,
   equipe: Users,
+  journal: ScrollText,
   parametres: Settings,
 } as const;
 
@@ -106,6 +109,8 @@ export function AppShell({
   isPlatformAdmin = false,
   userName,
   orgName,
+  activeOrganizationId,
+  organizations,
   children,
 }: {
   navGroups: NavGroup[];
@@ -113,6 +118,8 @@ export function AppShell({
   isPlatformAdmin?: boolean;
   userName: string;
   orgName: string;
+  activeOrganizationId: string;
+  organizations: OrgOption[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -132,10 +139,12 @@ export function AppShell({
         </div>
         <div className="border-t border-sidebar-border p-3 pb-safe">
           <div className="flex items-center justify-between gap-2 border border-sidebar-border bg-sidebar-accent/40 px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
-            </div>
+            <OrgSwitcher
+              orgName={orgName}
+              isAdmin={isAdmin}
+              activeOrganizationId={activeOrganizationId}
+              organizations={organizations}
+            />
             <div className="flex shrink-0 items-center gap-1">
               <ThemeToggle />
               <UserMenu userName={userName} isPlatformAdmin={isPlatformAdmin} />
@@ -169,10 +178,12 @@ export function AppShell({
                 </div>
                 <div className="border-t border-sidebar-border p-3">
                   <div className="flex items-center justify-between gap-2 border border-sidebar-border bg-sidebar-accent/40 px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-sidebar-foreground">{orgName}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{isAdmin ? "Gerant" : "Barman"}</p>
-                    </div>
+                    <OrgSwitcher
+                      orgName={orgName}
+                      isAdmin={isAdmin}
+                      activeOrganizationId={activeOrganizationId}
+                      organizations={organizations}
+                    />
                     <UserMenu userName={userName} isPlatformAdmin={isPlatformAdmin} />
                   </div>
                 </div>

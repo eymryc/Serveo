@@ -4,7 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
+import { auditLogs, users } from "@/db/schema";
 import { verifyPassword } from "@/lib/password";
 import { verifyMobileToken } from "@/lib/mobile-token";
 
@@ -14,9 +14,32 @@ async function loadUserById(userId: string) {
   return user ?? null;
 }
 
+// Ecrit directement (pas via lib/audit.ts, qui depend de auth() : import
+// circulaire) — la session n'est de toute facon pas lisible dans le callback jwt.
+async function logImpersonation(
+  action: "impersonation.start" | "impersonation.stop",
+  impersonatorId: string,
+  targetUserId: string,
+  organizationId: string | null = null
+) {
+  try {
+    await getDb().insert(auditLogs).values({
+      organizationId,
+      actorUserId: impersonatorId,
+      impersonatorUserId: impersonatorId,
+      action,
+      targetType: "user",
+      targetId: targetUserId,
+    });
+  } catch (error) {
+    console.error("Echec ecriture journal d'audit", action, error);
+  }
+}
+
 declare module "next-auth" {
   interface Session {
     impersonating?: boolean;
+    impersonatorId?: string;
     user: {
       id: string;
       phone: string;
@@ -72,6 +95,7 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
           typeof token.impersonatorId === "string" ? token.impersonatorId : undefined;
 
         if (payload.stopImpersonating && impersonatorId) {
+          await logImpersonation("impersonation.stop", impersonatorId, String(token.sub));
           token.sub = impersonatorId;
           delete token.impersonatorId;
           return token;
@@ -90,6 +114,7 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
 
           token.impersonatorId = actorId;
           token.sub = target.id;
+          await logImpersonation("impersonation.start", actorId, target.id, target.organizationId);
         }
       }
 
@@ -107,6 +132,7 @@ export const { handlers, signIn, signOut, auth: nextAuthSession } = NextAuth({
       const impersonating = typeof token.impersonatorId === "string";
 
       session.impersonating = impersonating;
+      if (impersonating) session.impersonatorId = token.impersonatorId as string;
       session.user.id = user.id;
       session.user.phone = user.phone;
       session.user.firstName = user.firstName;
@@ -138,6 +164,7 @@ async function authFromBearerToken() {
     orgRole: user.organizationId ? (user.role === "admin" ? ("org:admin" as const) : ("org:member" as const)) : null,
     isPlatformAdmin: user.isPlatformAdmin === 1,
     impersonating: false,
+    impersonatorId: null as string | null,
   };
 }
 
@@ -155,5 +182,6 @@ export async function auth() {
     orgRole: u?.organizationId ? (u.role === "admin" ? ("org:admin" as const) : ("org:member" as const)) : null,
     isPlatformAdmin: u?.isPlatformAdmin ?? false,
     impersonating: session?.impersonating ?? false,
+    impersonatorId: session?.impersonatorId ?? null,
   };
 }

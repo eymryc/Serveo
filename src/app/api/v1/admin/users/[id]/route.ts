@@ -6,6 +6,8 @@ import { HttpError } from "@/lib/http-errors";
 import { hashPassword } from "@/lib/password";
 import { requirePlatformAdmin, tenantErrorResponse } from "@/lib/tenant";
 import { adminUpdateUserSchema } from "@/lib/validation";
+import { addMembership, removeMembership, setMembershipRole } from "@/lib/memberships";
+import { recordAudit } from "@/lib/audit";
 
 async function ensureAnotherPlatformAdmin(db: ReturnType<typeof getDb>, excludeId: string) {
   const [others] = await db
@@ -71,16 +73,30 @@ export async function PATCH(
 
     const passwordHash = body.password ? await hashPassword(body.password) : undefined;
 
+    // Bar et role passent par les memberships (cf. lib/memberships.ts) :
+    // organizationId = rattacher a ce bar et en faire le bar actif ;
+    // organizationId null = retirer du bar actif.
+    if (body.organizationId) {
+      await addMembership(db, {
+        userId: id,
+        organizationId: body.organizationId,
+        role: body.role ?? target.role,
+        makeActive: true,
+      });
+    } else if (body.organizationId === null && target.organizationId) {
+      await removeMembership(id, target.organizationId);
+    } else if (body.role !== undefined && target.organizationId) {
+      await setMembershipRole(id, target.organizationId, body.role);
+    }
+
     const [updated] = await db
       .update(users)
       .set({
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.isPlatformAdmin !== undefined ? { isPlatformAdmin: body.isPlatformAdmin } : {}),
-        ...(body.role !== undefined ? { role: body.role } : {}),
         ...(body.firstName !== undefined ? { firstName: body.firstName.trim() } : {}),
         ...(body.lastName !== undefined ? { lastName: body.lastName.trim() } : {}),
         ...(body.phone !== undefined ? { phone: body.phone.trim() } : {}),
-        ...(body.organizationId !== undefined ? { organizationId: body.organizationId } : {}),
         ...(passwordHash ? { passwordHash } : {}),
       })
       .where(eq(users.id, id))
@@ -105,6 +121,14 @@ export async function PATCH(
         .limit(1);
       organizationName = org?.name ?? null;
     }
+
+    await recordAudit({
+      organizationId: updated.organizationId,
+      action: "admin.user_update",
+      targetType: "user",
+      targetId: id,
+      metadata: { fields: Object.keys(body).filter((k) => k !== "password"), passwordChanged: Boolean(body.password) },
+    });
 
     return NextResponse.json({
       user: {
@@ -139,6 +163,14 @@ export async function DELETE(
     }
 
     await db.delete(users).where(eq(users.id, id));
+
+    await recordAudit({
+      organizationId: null,
+      action: "admin.user_delete",
+      targetType: "user",
+      targetId: id,
+      metadata: { phone: target.phone, organizationId: target.organizationId },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
